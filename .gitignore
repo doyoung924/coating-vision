@@ -1,0 +1,40 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 데이터셋 (CC BY-NC-ND 4.0 - 재배포 제한, 원본 및 파생 모두 제외)
+classification/
+detection/
+segmentation/
+data/
+
+# 학습 결과 및 모델 가중치 (재생성 가능, 큰 용량)
+runs/
+results_v1/
+*.pt
+*.cache
+
+# 아카이브 (재생성 가능)
+*.tar.gz
+
+# 로그
+*.log
+
+# WSL / NTFS 부산물
+*Zone.Identifier
+*RVContext
+
+# 중간 확인 이미지
+check_*/
+
+# 노트북 부산물
+.ipynb_checkpoints/
+
+# 중복/오분류 파일 (experiment_log.py 는 08_robustness_test.py 와 동일 내용)
+Untitled.ipynb
+experiment_log.py
+
+# IDE
+.vscode/
+.idea/

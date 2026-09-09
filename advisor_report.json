@@ -1,0 +1,1064 @@
+{
+  "schema_version": "0.1",
+  "domain_gap_note": {
+    "dataset_composition": "Vulcan carbon + water/IPA solvent + Nafion binder, PTFE substrate",
+    "target_composition": "NMC/graphite + PVdF binder + NMP solvent, Al/Cu foil substrate",
+    "transferable": "슬롯다이 코팅 및 건조 과정의 결함 형성 물리(모세관압에 의한 크랙 전파, 접착력-내부응력 경쟁에 의한 박리, 기포/젖음성에 의한 핀홀)는 콜로이드 분산액 공통 현상으로 조성과 무관하게 공유됨",
+    "not_transferable": "활물질의 광학 특성(카본블랙 대비 NMC의 반사율 차이)과 그에 따른 조명/노출 조건, 절대적 결함 허용 기준, 기재-코팅 계면 특성",
+    "source": "R1"
+  },
+  "verification_status": "DRAFT - 도영 검수 필요. 특히 property_impact와 severity 판정 기준.",
+  "sequences": [
+    {
+      "run_id": "R1",
+      "coating_gap": 600,
+      "position": "top-to-bottom-center",
+      "observation": {
+        "spc": {
+          "n_observations": 306,
+          "center": 0.0418,
+          "ucl": 0.1752,
+          "capability": "GOOD",
+          "defect_ratio_max": 0.9714,
+          "defect_ratio_median": 0.0857,
+          "defect_ratio_mean": 0.20182614379084968,
+          "label_crack_rate": 0.5915032679738562,
+          "label_delam_rate": 0.0,
+          "label_pinhole_rate": 0.38235294117647056,
+          "alert_counts": {
+            "rule1_upper": 109,
+            "rule2_run9": 16,
+            "rule3_trend_up": 5,
+            "rule3_trend_down": 3,
+            "ewma_upper": 161
+          },
+          "alert_total": 294
+        },
+        "detection": {
+          "n_images_scanned": 306,
+          "n_detections": 137,
+          "aspect_median": 1.5081469001258292,
+          "aspect_p90": 2.792674419547721,
+          "area_median": 366.1686590593308,
+          "area_max": 1499.3376556774601,
+          "detections_per_image": 0.4477124183006536
+        }
+      },
+      "focused_defect": "pinhole",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 306,
+          "crack": 59.2,
+          "delamination": 0.0,
+          "pinhole": 38.2,
+          "clean": 8.2
+        },
+        "absolute_leader": [
+          "surface_crack",
+          59.2
+        ],
+        "absolute_second": [
+          "pinhole",
+          38.2
+        ],
+        "absolute_ratio": 1.5497382198952878,
+        "absolute_status": "majority",
+        "outliers": [
+          {
+            "class_key": "pinhole",
+            "rate": 38.2,
+            "gap_average": 23.966666666666665,
+            "relative_ratio": 1.5938803894297637
+          }
+        ],
+        "reason_text": "갭 600µm 실측 결함률: 크랙 59.2% / 핀홀 38.2% / 박리 0.0% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 59.2% (2위 핀홀 38.2%, 격차 1.55배). 알람 총 294건 (ewma_upper 161건, rule1_upper 109건, rule2_run9 16건).",
+          "basis": "갭 600µm 실측 결함률: 크랙 59.2% / 핀홀 38.2% / 박리 0.0% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "핀홀 38.2% 는 전체 갭 평균 24.0% 대비 1.59배로 특이. 이 갭 조건의 실측 특징으로 볼 수 있음.",
+          "basis": "갭 600µm 실측 결함률: 크랙 59.2% / 핀홀 38.2% / 박리 0.0% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 4,
+          "confidence": "medium",
+          "message": "검출된 핀홀 종횡비 중앙값이 1.51 로 1.20 초과. 응집체 걸림 또는 과소 갭 메커니즘 의심 (n=137). 참조(갭 600µm) aspect=1.21",
+          "basis": "defect_map.pinhole.diagnostic_rule (임계값은 R1 단일 런 데이터 도출)"
+        },
+        {
+          "priority": 4,
+          "confidence": "low",
+          "message": "관측 aspect(1.51) 가 참조(1.21) 대비 1.25배로 벗어남. 시퀀스별 검출 표본/모델 특성 차이 가능성 (n=137).",
+          "basis": "defect_map.measured_relations.pinhole_morphology.by_gap"
+        }
+      ],
+      "references": [
+        {
+          "topic": "핀홀 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 코팅 갭 과대 (비드 불안정/공기 포집 -> 대형 불규칙 핀홀) [confidence=high, src=?]",
+            "- 코팅 갭 과소 (고전단/기포 팽창 -> 미세 핀홀 다발) [confidence=high, src=?]",
+            "- 슬러리 내 잔류 기포 (탈포 부족 시 증가) [confidence=high, src=?]",
+            "- 기재 표면 오염 (젖음성 저하 시 증가) [confidence=high, src=?]",
+            "- 응집체/이물 (좁은 갭에서 일렬 핀홀 유발) [confidence=medium, src=?]",
+            "- 건조 속도 과다 [confidence=medium, src=?]"
+          ]
+        },
+        {
+          "topic": "핀홀 check_actions",
+          "lines": [
+            "- 핀홀 형태(크기/개수/규칙성) 확인하여 갭 방향 판별",
+            "- 코팅 갭 설정값과 목표 wet 두께 대비 확인",
+            "- 슬러리 탈포 상태 확인",
+            "- 기재 세정 및 젖음성 확인",
+            "- 필터 상태 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 600µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.21",
+            "- roundness_median: 0.718",
+            "- area_median_box: 360px",
+            "- area_max_box: 1040px"
+          ]
+        },
+        {
+          "topic": "갭 600µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 59.2%",
+            "- 핀홀: 38.2%",
+            "- 박리: 0.0%",
+            "- 정상: 8.2%",
+            "- 표본: 306장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R1",
+      "coating_gap": 700,
+      "position": "top-to-bottom-center",
+      "observation": {
+        "spc": {
+          "n_observations": 275,
+          "center": 0.2155,
+          "ucl": 0.8489,
+          "capability": "MARGINAL",
+          "defect_ratio_max": 1.0,
+          "defect_ratio_median": 0.2143,
+          "defect_ratio_mean": 0.257612,
+          "label_crack_rate": 0.8581818181818182,
+          "label_delam_rate": 0.0036363636363636364,
+          "label_pinhole_rate": 0.28363636363636363,
+          "alert_counts": {
+            "rule1_upper": 6,
+            "rule2_run9": 9,
+            "rule3_trend_down": 8,
+            "rule3_trend_up": 7,
+            "ewma_upper": 30
+          },
+          "alert_total": 60
+        },
+        "detection": {
+          "n_images_scanned": 275,
+          "n_detections": 89,
+          "aspect_median": 1.3266218502887166,
+          "aspect_p90": 2.5340071926154484,
+          "area_median": 423.05919463932514,
+          "area_max": 12300.165021076798,
+          "detections_per_image": 0.3236363636363636
+        }
+      },
+      "focused_defect": "surface_crack",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 407,
+          "crack": 82.8,
+          "delamination": 10.8,
+          "pinhole": 24.3,
+          "clean": 2.5
+        },
+        "absolute_leader": [
+          "surface_crack",
+          82.8
+        ],
+        "absolute_second": [
+          "pinhole",
+          24.3
+        ],
+        "absolute_ratio": 3.407407407407407,
+        "absolute_status": "majority",
+        "outliers": [],
+        "reason_text": "갭 700µm 실측 결함률: 크랙 82.8% / 핀홀 24.3% / 박리 10.8% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 82.8% (2위 핀홀 24.3%, 격차 3.41배). 알람 총 60건 (ewma_upper 30건, rule2_run9 9건, rule3_trend_down 8건).",
+          "basis": "갭 700µm 실측 결함률: 크랙 82.8% / 핀홀 24.3% / 박리 10.8% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 3,
+          "confidence": "low",
+          "message": "박리 라벨률이 갭 700µm 참조값 대비 낮음 (0.4% 관측 vs 10.8% 참조, 비 0.03). 런/촬영위치/표본크기가 교란되어 있어 이 시퀀스만으로 원인을 분리 귀속할 수 없음. 추가 실험 없이는 원인 규명 불가.",
+          "basis": "관측 = 이 시퀀스 라벨률 (n=275), 참조 = defect_map.measured_relations.gap_vs_defect_rate (전체 갭 700µm)"
+        },
+        {
+          "priority": 4,
+          "confidence": "medium",
+          "message": "검출된 핀홀 종횡비 중앙값이 1.33 로 1.20 초과. 응집체 걸림 또는 과소 갭 메커니즘 의심 (n=89). 참조(갭 700µm) aspect=1.21",
+          "basis": "defect_map.pinhole.diagnostic_rule (임계값은 R1 단일 런 데이터 도출)"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "표면 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 온도 과다 (고온일수록 크랙 촉진) [confidence=high, src=R1]",
+            "- 코팅 두께 과다 (두꺼울수록 크랙 증가) [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 활물질 입자 크기 (입자가 클수록 크랙 증가) [confidence=high, src=R1]",
+            "- 입도 분포 폭 (분포가 넓을수록 크랙 증가) [confidence=high, src=R1]",
+            "- 바인더 함량 부족 (부족할수록 크랙 증가) [confidence=medium, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 check_actions",
+          "lines": [
+            "- 건조 온도 프로파일 확인",
+            "- 코팅 두께 대비 건조 조건 적정성 검토",
+            "- 바인더 함량 및 분산 상태 확인",
+            "- 건조 챔버 습도 조건 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 700µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.21",
+            "- roundness_median: 0.739",
+            "- area_median_box: 360px",
+            "- area_max_box: 3685px"
+          ]
+        },
+        {
+          "topic": "갭 700µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 82.8%",
+            "- 핀홀: 24.3%",
+            "- 박리: 10.8%",
+            "- 정상: 2.5%",
+            "- 표본: 407장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R7",
+      "coating_gap": 700,
+      "position": "middle",
+      "observation": {
+        "spc": {
+          "n_observations": 132,
+          "center": 0.3451,
+          "ucl": 0.9354,
+          "capability": "INCAPABLE",
+          "defect_ratio_max": 1.0,
+          "defect_ratio_median": 0.3571,
+          "defect_ratio_mean": 0.40086818181818185,
+          "label_crack_rate": 0.7651515151515151,
+          "label_delam_rate": 0.32575757575757575,
+          "label_pinhole_rate": 0.1590909090909091,
+          "alert_counts": {
+            "rule1_upper": 3,
+            "rule2_run9": 4,
+            "rule3_trend_down": 4,
+            "rule3_trend_up": 2,
+            "ewma_upper": 32,
+            "ewma_lower": 10
+          },
+          "alert_total": 55
+        },
+        "detection": {
+          "n_images_scanned": 132,
+          "n_detections": 21,
+          "aspect_median": 1.2181236579546508,
+          "aspect_p90": 1.9194904968808408,
+          "area_median": 726.0975755751133,
+          "area_max": 9881.05233286228,
+          "detections_per_image": 0.1590909090909091
+        }
+      },
+      "focused_defect": "surface_crack",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 407,
+          "crack": 82.8,
+          "delamination": 10.8,
+          "pinhole": 24.3,
+          "clean": 2.5
+        },
+        "absolute_leader": [
+          "surface_crack",
+          82.8
+        ],
+        "absolute_second": [
+          "pinhole",
+          24.3
+        ],
+        "absolute_ratio": 3.407407407407407,
+        "absolute_status": "majority",
+        "outliers": [],
+        "reason_text": "갭 700µm 실측 결함률: 크랙 82.8% / 핀홀 24.3% / 박리 10.8% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 1,
+          "confidence": "high",
+          "message": "공정능력이 붕괴되어 있습니다 (center = 0.345 >= 임계 0.25). 관리도 기반 이상 감지가 무의미하며, 갭 축소 또는 건조 조건 완화가 선행되어야 합니다. 실측 근거: 갭 700µm 의 크랙 라벨률 82.8% (defect_map.measured_relations).",
+          "basis": "defect_map.measured_relations.gap_vs_defect_rate"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 82.8% (2위 핀홀 24.3%, 격차 3.41배). 알람 총 55건 (ewma_upper 32건, ewma_lower 10건, rule2_run9 4건).",
+          "basis": "갭 700µm 실측 결함률: 크랙 82.8% / 핀홀 24.3% / 박리 10.8% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 3,
+          "confidence": "low",
+          "message": "박리 라벨률이 갭 700µm 참조값 대비 높음 (32.6% 관측 vs 10.8% 참조, 비 3.02). 런/촬영위치/표본크기가 교란되어 있어 이 시퀀스만으로 원인을 분리 귀속할 수 없음. 추가 실험 없이는 원인 규명 불가.",
+          "basis": "관측 = 이 시퀀스 라벨률 (n=132), 참조 = defect_map.measured_relations.gap_vs_defect_rate (전체 갭 700µm)"
+        },
+        {
+          "priority": 4,
+          "confidence": "medium",
+          "message": "검출된 핀홀 종횡비 중앙값이 1.22 로 1.20 초과. 응집체 걸림 또는 과소 갭 메커니즘 의심 (n=21). 참조(갭 700µm) aspect=1.21",
+          "basis": "defect_map.pinhole.diagnostic_rule (임계값은 R1 단일 런 데이터 도출)"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "표면 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 온도 과다 (고온일수록 크랙 촉진) [confidence=high, src=R1]",
+            "- 코팅 두께 과다 (두꺼울수록 크랙 증가) [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 활물질 입자 크기 (입자가 클수록 크랙 증가) [confidence=high, src=R1]",
+            "- 입도 분포 폭 (분포가 넓을수록 크랙 증가) [confidence=high, src=R1]",
+            "- 바인더 함량 부족 (부족할수록 크랙 증가) [confidence=medium, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 check_actions",
+          "lines": [
+            "- 건조 온도 프로파일 확인",
+            "- 코팅 두께 대비 건조 조건 적정성 검토",
+            "- 바인더 함량 및 분산 상태 확인",
+            "- 건조 챔버 습도 조건 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 700µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.21",
+            "- roundness_median: 0.739",
+            "- area_median_box: 360px",
+            "- area_max_box: 3685px"
+          ]
+        },
+        {
+          "topic": "갭 700µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 82.8%",
+            "- 핀홀: 24.3%",
+            "- 박리: 10.8%",
+            "- 정상: 2.5%",
+            "- 표본: 407장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R1",
+      "coating_gap": 800,
+      "position": "top-to-bottom-center",
+      "observation": {
+        "spc": {
+          "n_observations": 303,
+          "center": 0.1122,
+          "ucl": 0.4429,
+          "capability": "MARGINAL",
+          "defect_ratio_max": 0.9286,
+          "defect_ratio_median": 0.2,
+          "defect_ratio_mean": 0.2479980198019802,
+          "label_crack_rate": 0.8151815181518152,
+          "label_delam_rate": 0.16501650165016502,
+          "label_pinhole_rate": 0.2838283828382838,
+          "alert_counts": {
+            "rule1_upper": 42,
+            "rule2_run9": 19,
+            "rule3_trend_down": 4,
+            "rule3_trend_up": 7,
+            "ewma_upper": 126
+          },
+          "alert_total": 198
+        },
+        "detection": {
+          "n_images_scanned": 303,
+          "n_detections": 95,
+          "aspect_median": 1.3486581604704506,
+          "aspect_p90": 2.7207924072599816,
+          "area_median": 440.4176292568445,
+          "area_max": 82688.0,
+          "detections_per_image": 0.31353135313531355
+        }
+      },
+      "focused_defect": "delamination",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 303,
+          "crack": 81.5,
+          "delamination": 16.5,
+          "pinhole": 28.4,
+          "clean": 2.6
+        },
+        "absolute_leader": [
+          "surface_crack",
+          81.5
+        ],
+        "absolute_second": [
+          "pinhole",
+          28.4
+        ],
+        "absolute_ratio": 2.869718309859155,
+        "absolute_status": "majority",
+        "outliers": [
+          {
+            "class_key": "delamination",
+            "rate": 16.5,
+            "gap_average": 8.383333333333333,
+            "relative_ratio": 1.9681908548707754
+          }
+        ],
+        "reason_text": "갭 800µm 실측 결함률: 크랙 81.5% / 핀홀 28.4% / 박리 16.5% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 81.5% (2위 핀홀 28.4%, 격차 2.87배). 알람 총 198건 (ewma_upper 126건, rule1_upper 42건, rule2_run9 19건).",
+          "basis": "갭 800µm 실측 결함률: 크랙 81.5% / 핀홀 28.4% / 박리 16.5% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "박리 크랙 16.5% 는 전체 갭 평균 8.4% 대비 1.97배로 특이. 이 갭 조건의 실측 특징으로 볼 수 있음.",
+          "basis": "갭 800µm 실측 결함률: 크랙 81.5% / 핀홀 28.4% / 박리 16.5% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 4,
+          "confidence": "medium",
+          "message": "검출된 핀홀 종횡비 중앙값이 1.35 로 1.20 초과. 응집체 걸림 또는 과소 갭 메커니즘 의심 (n=95). 참조(갭 800µm) aspect=1.19",
+          "basis": "defect_map.pinhole.diagnostic_rule (임계값은 R1 단일 런 데이터 도출)"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "박리 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 중 내부 응력 과다 [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "박리 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 코팅재 접착 특성 불량 (접착력 낮을수록 박리 증가) [confidence=high, src=R1]",
+            "- 기재 표면 거칠기 (거칠기 부적정 시 박리 증가) [confidence=high, src=R1]",
+            "- 필름 기계적 건전성 부족 [confidence=high, src=R1]",
+            "- 바인더 마이그레이션 (바인더가 상부로 이동 시 계면 바인더 부족) [confidence=medium, src=R2]"
+          ]
+        },
+        {
+          "topic": "박리 크랙 check_actions",
+          "lines": [
+            "- 기재 세정 상태 및 표면 조도 확인",
+            "- 바인더 함량 및 분포 확인",
+            "- 건조 온도 프로파일 확인",
+            "- 코팅-기재 접착력 시험(테이프 테스트 등) 실시"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 800µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.19",
+            "- roundness_median: 0.687",
+            "- area_median_box: 394px",
+            "- area_max_box: 3127px"
+          ]
+        },
+        {
+          "topic": "갭 800µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 81.5%",
+            "- 핀홀: 28.4%",
+            "- 박리: 16.5%",
+            "- 정상: 2.6%",
+            "- 표본: 303장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R1",
+      "coating_gap": 900,
+      "position": "top-to-bottom-center",
+      "observation": {
+        "spc": {
+          "n_observations": 304,
+          "center": 0.36,
+          "ucl": 0.9971,
+          "capability": "INCAPABLE",
+          "defect_ratio_max": 0.8286,
+          "defect_ratio_median": 0.3286,
+          "defect_ratio_mean": 0.3638190789473684,
+          "label_crack_rate": 0.9572368421052632,
+          "label_delam_rate": 0.01644736842105263,
+          "label_pinhole_rate": 0.12828947368421054,
+          "alert_counts": {
+            "rule2_run9": 7,
+            "rule3_trend_down": 7,
+            "rule3_trend_up": 6,
+            "ewma_lower": 2,
+            "ewma_upper": 10
+          },
+          "alert_total": 32
+        },
+        "detection": {
+          "n_images_scanned": 304,
+          "n_detections": 41,
+          "aspect_median": 1.1814451444912004,
+          "aspect_p90": 1.4414572511582198,
+          "area_median": 186.97307857871056,
+          "area_max": 1778.565815543756,
+          "detections_per_image": 0.13486842105263158
+        }
+      },
+      "focused_defect": "surface_crack",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 304,
+          "crack": 95.7,
+          "delamination": 1.6,
+          "pinhole": 12.8,
+          "clean": 0.3
+        },
+        "absolute_leader": [
+          "surface_crack",
+          95.7
+        ],
+        "absolute_second": [
+          "pinhole",
+          12.8
+        ],
+        "absolute_ratio": 7.4765625,
+        "absolute_status": "majority",
+        "outliers": [],
+        "reason_text": "갭 900µm 실측 결함률: 크랙 95.7% / 핀홀 12.8% / 박리 1.6% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 1,
+          "confidence": "high",
+          "message": "공정능력이 붕괴되어 있습니다 (center = 0.360 >= 임계 0.25). 관리도 기반 이상 감지가 무의미하며, 갭 축소 또는 건조 조건 완화가 선행되어야 합니다. 실측 근거: 갭 900µm 의 크랙 라벨률 95.7% (defect_map.measured_relations).",
+          "basis": "defect_map.measured_relations.gap_vs_defect_rate"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 95.7% (2위 핀홀 12.8%, 격차 7.48배). 알람 총 32건 (ewma_upper 10건, rule2_run9 7건, rule3_trend_down 7건).",
+          "basis": "갭 900µm 실측 결함률: 크랙 95.7% / 핀홀 12.8% / 박리 1.6% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "표면 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 온도 과다 (고온일수록 크랙 촉진) [confidence=high, src=R1]",
+            "- 코팅 두께 과다 (두꺼울수록 크랙 증가) [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 활물질 입자 크기 (입자가 클수록 크랙 증가) [confidence=high, src=R1]",
+            "- 입도 분포 폭 (분포가 넓을수록 크랙 증가) [confidence=high, src=R1]",
+            "- 바인더 함량 부족 (부족할수록 크랙 증가) [confidence=medium, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 check_actions",
+          "lines": [
+            "- 건조 온도 프로파일 확인",
+            "- 코팅 두께 대비 건조 조건 적정성 검토",
+            "- 바인더 함량 및 분산 상태 확인",
+            "- 건조 챔버 습도 조건 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 900µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.07",
+            "- roundness_median: 0.747",
+            "- area_median_box: 256px",
+            "- area_max_box: 726px"
+          ]
+        },
+        {
+          "topic": "갭 900µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 95.7%",
+            "- 핀홀: 12.8%",
+            "- 박리: 1.6%",
+            "- 정상: 0.3%",
+            "- 표본: 304장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R1",
+      "coating_gap": 1000,
+      "position": "top-to-bottom-center",
+      "observation": {
+        "spc": {
+          "n_observations": 230,
+          "center": 0.3292,
+          "ucl": 0.7393,
+          "capability": "INCAPABLE",
+          "defect_ratio_max": 0.9857,
+          "defect_ratio_median": 0.4571,
+          "defect_ratio_mean": 0.47627304347826077,
+          "label_crack_rate": 0.9826086956521739,
+          "label_delam_rate": 0.09130434782608696,
+          "label_pinhole_rate": 0.20869565217391303,
+          "alert_counts": {
+            "rule1_upper": 27,
+            "rule2_run9": 11,
+            "rule3_trend_up": 8,
+            "rule3_trend_down": 3,
+            "ewma_lower": 7,
+            "ewma_upper": 129
+          },
+          "alert_total": 185
+        },
+        "detection": {
+          "n_images_scanned": 230,
+          "n_detections": 46,
+          "aspect_median": 1.2104551779543948,
+          "aspect_p90": 1.9586392172959703,
+          "area_median": 275.1797701312462,
+          "area_max": 1670.444269862026,
+          "detections_per_image": 0.2
+        }
+      },
+      "focused_defect": "surface_crack",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 230,
+          "crack": 98.3,
+          "delamination": 9.1,
+          "pinhole": 20.9,
+          "clean": 0.0
+        },
+        "absolute_leader": [
+          "surface_crack",
+          98.3
+        ],
+        "absolute_second": [
+          "pinhole",
+          20.9
+        ],
+        "absolute_ratio": 4.703349282296651,
+        "absolute_status": "majority",
+        "outliers": [],
+        "reason_text": "갭 1000µm 실측 결함률: 크랙 98.3% / 핀홀 20.9% / 박리 9.1% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 1,
+          "confidence": "high",
+          "message": "공정능력이 붕괴되어 있습니다 (center = 0.329 >= 임계 0.25). 관리도 기반 이상 감지가 무의미하며, 갭 축소 또는 건조 조건 완화가 선행되어야 합니다. 실측 근거: 갭 1000µm 의 크랙 라벨률 98.3% (defect_map.measured_relations).",
+          "basis": "defect_map.measured_relations.gap_vs_defect_rate"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 98.3% (2위 핀홀 20.9%, 격차 4.70배). 알람 총 185건 (ewma_upper 129건, rule1_upper 27건, rule2_run9 11건).",
+          "basis": "갭 1000µm 실측 결함률: 크랙 98.3% / 핀홀 20.9% / 박리 9.1% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 4,
+          "confidence": "medium",
+          "message": "검출된 핀홀 종횡비 중앙값이 1.21 로 1.20 초과. 응집체 걸림 또는 과소 갭 메커니즘 의심 (n=46). 참조(갭 1000µm) aspect=1.14",
+          "basis": "defect_map.pinhole.diagnostic_rule (임계값은 R1 단일 런 데이터 도출)"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "표면 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 온도 과다 (고온일수록 크랙 촉진) [confidence=high, src=R1]",
+            "- 코팅 두께 과다 (두꺼울수록 크랙 증가) [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 활물질 입자 크기 (입자가 클수록 크랙 증가) [confidence=high, src=R1]",
+            "- 입도 분포 폭 (분포가 넓을수록 크랙 증가) [confidence=high, src=R1]",
+            "- 바인더 함량 부족 (부족할수록 크랙 증가) [confidence=medium, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 check_actions",
+          "lines": [
+            "- 건조 온도 프로파일 확인",
+            "- 코팅 두께 대비 건조 조건 적정성 검토",
+            "- 바인더 함량 및 분산 상태 확인",
+            "- 건조 챔버 습도 조건 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 1000µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.14",
+            "- roundness_median: 0.769",
+            "- area_median_box: 308px",
+            "- area_max_box: 1092px"
+          ]
+        },
+        {
+          "topic": "갭 1000µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 98.3%",
+            "- 핀홀: 20.9%",
+            "- 박리: 9.1%",
+            "- 정상: 0.0%",
+            "- 표본: 230장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R1",
+      "coating_gap": 1100,
+      "position": "top-to-bottom-center",
+      "observation": {
+        "spc": {
+          "n_observations": 404,
+          "center": 0.2876,
+          "ucl": 0.8806,
+          "capability": "INCAPABLE",
+          "defect_ratio_max": 1.0,
+          "defect_ratio_median": 0.3571,
+          "defect_ratio_mean": 0.36237722772277225,
+          "label_crack_rate": 0.9801980198019802,
+          "label_delam_rate": 0.01485148514851485,
+          "label_pinhole_rate": 0.2202970297029703,
+          "alert_counts": {
+            "rule1_upper": 2,
+            "rule2_run9": 18,
+            "rule3_trend_up": 7,
+            "rule3_trend_down": 5,
+            "ewma_upper": 36
+          },
+          "alert_total": 68
+        },
+        "detection": {
+          "n_images_scanned": 404,
+          "n_detections": 95,
+          "aspect_median": 1.0961276199169716,
+          "aspect_p90": 1.418583483308665,
+          "area_median": 155.30332244932652,
+          "area_max": 1330.530989125371,
+          "detections_per_image": 0.23514851485148514
+        }
+      },
+      "focused_defect": "surface_crack",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 677,
+          "crack": 98.2,
+          "delamination": 12.3,
+          "pinhole": 19.2,
+          "clean": 0.0
+        },
+        "absolute_leader": [
+          "surface_crack",
+          98.2
+        ],
+        "absolute_second": [
+          "pinhole",
+          19.2
+        ],
+        "absolute_ratio": 5.114583333333334,
+        "absolute_status": "majority",
+        "outliers": [],
+        "reason_text": "갭 1100µm 실측 결함률: 크랙 98.2% / 핀홀 19.2% / 박리 12.3% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 1,
+          "confidence": "high",
+          "message": "공정능력이 붕괴되어 있습니다 (center = 0.288 >= 임계 0.25). 관리도 기반 이상 감지가 무의미하며, 갭 축소 또는 건조 조건 완화가 선행되어야 합니다. 실측 근거: 갭 1100µm 의 크랙 라벨률 98.2% (defect_map.measured_relations).",
+          "basis": "defect_map.measured_relations.gap_vs_defect_rate"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 98.2% (2위 핀홀 19.2%, 격차 5.11배). 알람 총 68건 (ewma_upper 36건, rule2_run9 18건, rule3_trend_up 7건).",
+          "basis": "갭 1100µm 실측 결함률: 크랙 98.2% / 핀홀 19.2% / 박리 12.3% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 3,
+          "confidence": "low",
+          "message": "박리 라벨률이 갭 1100µm 참조값 대비 낮음 (1.5% 관측 vs 12.3% 참조, 비 0.12). 런/촬영위치/표본크기가 교란되어 있어 이 시퀀스만으로 원인을 분리 귀속할 수 없음. 추가 실험 없이는 원인 규명 불가.",
+          "basis": "관측 = 이 시퀀스 라벨률 (n=404), 참조 = defect_map.measured_relations.gap_vs_defect_rate (전체 갭 1100µm)"
+        },
+        {
+          "priority": 4,
+          "confidence": "medium",
+          "message": "검출된 핀홀 종횡비 중앙값이 1.10 로 낮음. 둥근 형태이며 기포/젖음성 원인 성향 (n=95). 참조(갭 1100µm) aspect=1.07",
+          "basis": "defect_map.pinhole.diagnostic_rule (임계값은 R1 단일 런 데이터 도출)"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "표면 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 온도 과다 (고온일수록 크랙 촉진) [confidence=high, src=R1]",
+            "- 코팅 두께 과다 (두꺼울수록 크랙 증가) [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 활물질 입자 크기 (입자가 클수록 크랙 증가) [confidence=high, src=R1]",
+            "- 입도 분포 폭 (분포가 넓을수록 크랙 증가) [confidence=high, src=R1]",
+            "- 바인더 함량 부족 (부족할수록 크랙 증가) [confidence=medium, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 check_actions",
+          "lines": [
+            "- 건조 온도 프로파일 확인",
+            "- 코팅 두께 대비 건조 조건 적정성 검토",
+            "- 바인더 함량 및 분산 상태 확인",
+            "- 건조 챔버 습도 조건 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 1100µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.07",
+            "- roundness_median: 0.783",
+            "- area_median_box: 270px",
+            "- area_max_box: 783px"
+          ]
+        },
+        {
+          "topic": "갭 1100µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 98.2%",
+            "- 핀홀: 19.2%",
+            "- 박리: 12.3%",
+            "- 정상: 0.0%",
+            "- 표본: 677장"
+          ]
+        }
+      ]
+    },
+    {
+      "run_id": "R1",
+      "coating_gap": 1100,
+      "position": "top-to-bottom-center-1",
+      "observation": {
+        "spc": {
+          "n_observations": 273,
+          "center": 0.4275,
+          "ucl": 0.8914,
+          "capability": "INCAPABLE",
+          "defect_ratio_max": 0.9714,
+          "defect_ratio_median": 0.4857,
+          "defect_ratio_mean": 0.5140241758241758,
+          "label_crack_rate": 0.9853479853479854,
+          "label_delam_rate": 0.28205128205128205,
+          "label_pinhole_rate": 0.15018315018315018,
+          "alert_counts": {
+            "rule1_upper": 7,
+            "rule2_run9": 11,
+            "rule3_trend_up": 6,
+            "rule3_trend_down": 1,
+            "ewma_upper": 83
+          },
+          "alert_total": 108
+        },
+        "detection": {
+          "n_images_scanned": 273,
+          "n_detections": 41,
+          "aspect_median": 1.1794774767795597,
+          "aspect_p90": 1.60085213883076,
+          "area_median": 228.50437545776367,
+          "area_max": 834.7324433214962,
+          "detections_per_image": 0.15018315018315018
+        }
+      },
+      "focused_defect": "surface_crack",
+      "dominant_info": {
+        "gap_stats": {
+          "n": 677,
+          "crack": 98.2,
+          "delamination": 12.3,
+          "pinhole": 19.2,
+          "clean": 0.0
+        },
+        "absolute_leader": [
+          "surface_crack",
+          98.2
+        ],
+        "absolute_second": [
+          "pinhole",
+          19.2
+        ],
+        "absolute_ratio": 5.114583333333334,
+        "absolute_status": "majority",
+        "outliers": [],
+        "reason_text": "갭 1100µm 실측 결함률: 크랙 98.2% / 핀홀 19.2% / 박리 12.3% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+      },
+      "interpretations": [
+        {
+          "priority": 1,
+          "confidence": "high",
+          "message": "공정능력이 붕괴되어 있습니다 (center = 0.427 >= 임계 0.25). 관리도 기반 이상 감지가 무의미하며, 갭 축소 또는 건조 조건 완화가 선행되어야 합니다. 실측 근거: 갭 1100µm 의 크랙 라벨률 98.2% (defect_map.measured_relations).",
+          "basis": "defect_map.measured_relations.gap_vs_defect_rate"
+        },
+        {
+          "priority": 2,
+          "confidence": "medium",
+          "message": "표면 크랙 이(가) 최다 98.2% (2위 핀홀 19.2%, 격차 5.11배). 알람 총 108건 (ewma_upper 83건, rule2_run9 11건, rule1_upper 7건).",
+          "basis": "갭 1100µm 실측 결함률: 크랙 98.2% / 핀홀 19.2% / 박리 12.3% | 전체 갭 평균: 크랙 86.0% / 핀홀 24.0% / 박리 8.4%"
+        },
+        {
+          "priority": 3,
+          "confidence": "low",
+          "message": "박리 라벨률이 갭 1100µm 참조값 대비 높음 (28.2% 관측 vs 12.3% 참조, 비 2.29). 런/촬영위치/표본크기가 교란되어 있어 이 시퀀스만으로 원인을 분리 귀속할 수 없음. 추가 실험 없이는 원인 규명 불가.",
+          "basis": "관측 = 이 시퀀스 라벨률 (n=273), 참조 = defect_map.measured_relations.gap_vs_defect_rate (전체 갭 1100µm)"
+        },
+        {
+          "priority": 5,
+          "confidence": "reference",
+          "message": "데이터셋 도메인 갭 주의: CoatingVision 은 Vulcan/Nafion/PTFE 조성으로 연료전지 계열. 결함 형성 물리는 배터리 전극에 공유되나 절대 임계값은 재측정 필요.",
+          "basis": "defect_map.domain_gap_note"
+        }
+      ],
+      "references": [
+        {
+          "topic": "표면 크랙 root_causes | operational (라인 운전 중 조정 가능)",
+          "lines": [
+            "- 건조 온도 과다 (고온일수록 크랙 촉진) [confidence=high, src=R1]",
+            "- 코팅 두께 과다 (두꺼울수록 크랙 증가) [confidence=high, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 root_causes | design (즉시 조치 불가 — 배합/소재 설계 검토 필요)",
+          "lines": [
+            "- 활물질 입자 크기 (입자가 클수록 크랙 증가) [confidence=high, src=R1]",
+            "- 입도 분포 폭 (분포가 넓을수록 크랙 증가) [confidence=high, src=R1]",
+            "- 바인더 함량 부족 (부족할수록 크랙 증가) [confidence=medium, src=R1]"
+          ]
+        },
+        {
+          "topic": "표면 크랙 check_actions",
+          "lines": [
+            "- 건조 온도 프로파일 확인",
+            "- 코팅 두께 대비 건조 조건 적정성 검토",
+            "- 바인더 함량 및 분산 상태 확인",
+            "- 건조 챔버 습도 조건 확인"
+          ]
+        },
+        {
+          "topic": "핀홀 갭 1100µm 참조 형태 (measured_relations)",
+          "lines": [
+            "- aspect_median: 1.07",
+            "- roundness_median: 0.783",
+            "- area_median_box: 270px",
+            "- area_max_box: 783px"
+          ]
+        },
+        {
+          "topic": "갭 1100µm 실측 결함률 (CoatingVision 전체)",
+          "lines": [
+            "- 크랙: 98.2%",
+            "- 핀홀: 19.2%",
+            "- 박리: 12.3%",
+            "- 정상: 0.0%",
+            "- 표본: 677장"
+          ]
+        }
+      ]
+    }
+  ]
+}

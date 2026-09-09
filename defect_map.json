@@ -1,0 +1,681 @@
+{
+  "schema_version": "0.1",
+  "last_updated": "2026-09-09",
+  "description": "전극 코팅 결함 - 원인 공정 인자 - 물성 영향 매핑. dataset_classes는 CoatingVision에 실제 라벨이 존재하는 클래스, extended_reference는 문헌 기반 확장 항목(검출 대상 아님, Advisor 참조용).",
+  "verification_status": "DRAFT - 도영 검수 필요. 특히 property_impact와 severity 판정 기준.",
+  "references": {
+    "R1": {
+      "citation": "Sampath, V. et al. A Defect Dataset for Electrode Coating Manufacturing. Sci Data (2026). DOI 10.1038/s41597-025-06419-1",
+      "note": "CoatingVision 데이터셋 원논문. 결함 형성 메커니즘 및 실험 조건 출처."
+    },
+    "R2": {
+      "citation": "Lombardo, T. et al. Artificial Intelligence Applied to Battery Research: Hype or Reality? Chem. Rev. 2022, 122, 10899-10969",
+      "note": "배터리 제조 공정 AI 리뷰. 공정 인자-물성 관계 출처."
+    },
+    "R3": {
+      "citation": "Primo et al., ref 232 in R2",
+      "note": "캘린더링 조건 최적화. 압력/롤온도 지배 인자 및 최적 구간."
+    },
+    "R4": {
+      "citation": "Liu et al., ref 225 in R2",
+      "note": "GPR 기반 코마갭-로딩량 관계 정량화."
+    },
+    "R5": {
+      "citation": "Cunha et al., ref 224 in R2",
+      "note": "슬러리 특성(활물질 wt%, 고형분비, 점도)-로딩량/기공률 SVM 분석."
+    }
+  },
+  "domain_gap_note": {
+    "dataset_composition": "Vulcan carbon + water/IPA solvent + Nafion binder, PTFE substrate",
+    "target_composition": "NMC/graphite + PVdF binder + NMP solvent, Al/Cu foil substrate",
+    "transferable": "슬롯다이 코팅 및 건조 과정의 결함 형성 물리(모세관압에 의한 크랙 전파, 접착력-내부응력 경쟁에 의한 박리, 기포/젖음성에 의한 핀홀)는 콜로이드 분산액 공통 현상으로 조성과 무관하게 공유됨",
+    "not_transferable": "활물질의 광학 특성(카본블랙 대비 NMC의 반사율 차이)과 그에 따른 조명/노출 조건, 절대적 결함 허용 기준, 기재-코팅 계면 특성",
+    "source": "R1"
+  },
+  "dataset_classes": {
+    "surface_crack": {
+      "name_ko": "표면 크랙",
+      "channel_index": 0,
+      "prevalence": "1947 images (87.43%)",
+      "process_stage": "drying",
+      "visual_signature": "선형 균열. 상부 표면에서 시작해 기재 방향으로 전파. 망상 패턴을 이루기도 함.",
+      "formation_mechanism": "건조 중 용매 증발로 입자간 거리가 감소하며 모세관압이 발생해 입자 응집을 유도. 필름이 계속 수축하면서 다공성 네트워크가 형성되고, 액체로 채워져 있던 기공이 비면서 해당 입자간 응집력이 약화됨. 이 응력 해소 과정에서 크랙이 상부 층에서 발생해 기재 쪽으로 전파.",
+      "root_causes": [
+        {
+          "factor": "건조 온도 과다",
+          "direction": "고온일수록 크랙 촉진",
+          "confidence": "high",
+          "source": "R1",
+          "category": "operational"
+        },
+        {
+          "factor": "코팅 두께 과다",
+          "direction": "두꺼울수록 크랙 증가",
+          "confidence": "high",
+          "source": "R1",
+          "category": "operational"
+        },
+        {
+          "factor": "활물질 입자 크기",
+          "direction": "입자가 클수록 크랙 증가",
+          "confidence": "high",
+          "source": "R1",
+          "category": "design"
+        },
+        {
+          "factor": "입도 분포 폭",
+          "direction": "분포가 넓을수록 크랙 증가",
+          "confidence": "high",
+          "source": "R1",
+          "category": "design"
+        },
+        {
+          "factor": "바인더 함량 부족",
+          "direction": "부족할수록 크랙 증가",
+          "confidence": "medium",
+          "source": "R1",
+          "category": "design"
+        }
+      ],
+      "mitigation": [
+        {
+          "action": "가습 건조 조건 적용",
+          "note": "가습 조건은 크랙을 완화하는 것으로 보고됨",
+          "source": "R1"
+        },
+        {
+          "action": "건조 초기 승온 속도 완화"
+        },
+        {
+          "action": "바인더 함량 재검토"
+        }
+      ],
+      "property_impact": {
+        "electronic": "전자 전도 경로 단절 → 전극 저항 증가",
+        "mechanical": "집전체 접착력 저하 → 사이클 중 활물질 박리 가능",
+        "cycle_life": "크랙을 통한 전해액 침투 경로 변화 및 국부 응력 집중"
+      },
+      "severity": "major",
+      "severity_rule": "면적률 및 연속성 기준. 단일 미세 크랙은 minor, 망상 패턴 또는 MD 연속 발생은 major, 기재 도달 크랙은 critical.",
+      "check_actions": [
+        "건조 온도 프로파일 확인",
+        "코팅 두께 대비 건조 조건 적정성 검토",
+        "바인더 함량 및 분산 상태 확인",
+        "건조 챔버 습도 조건 확인"
+      ]
+    },
+    "delamination": {
+      "name_ko": "박리 크랙",
+      "channel_index": 1,
+      "prevalence": "203 images (9.12%) - 최소 클래스",
+      "process_stage": "drying",
+      "visual_signature": "코팅층이 기재로부터 분리된 형태. 계면에서 발생.",
+      "formation_mechanism": "코팅-기재 계면에서 응집력이 상실되어 발생. 필름 입자와 기재 간 접착력이 건조 중 생성되는 내부 응력을 상쇄하지 못할 때 나타남.",
+      "root_causes": [
+        {
+          "factor": "코팅재 접착 특성 불량",
+          "direction": "접착력 낮을수록 박리 증가",
+          "confidence": "high",
+          "source": "R1",
+          "category": "design"
+        },
+        {
+          "factor": "기재 표면 거칠기",
+          "direction": "거칠기 부적정 시 박리 증가",
+          "confidence": "high",
+          "source": "R1",
+          "category": "design"
+        },
+        {
+          "factor": "필름 기계적 건전성 부족",
+          "confidence": "high",
+          "source": "R1",
+          "category": "design"
+        },
+        {
+          "factor": "건조 중 내부 응력 과다",
+          "confidence": "high",
+          "source": "R1",
+          "category": "operational"
+        },
+        {
+          "factor": "바인더 마이그레이션",
+          "direction": "바인더가 상부로 이동 시 계면 바인더 부족",
+          "confidence": "medium",
+          "source": "R2",
+          "category": "design"
+        }
+      ],
+      "mitigation": [
+        {
+          "action": "기재 전처리 및 표면 조도 관리"
+        },
+        {
+          "action": "바인더 종류/함량 재검토"
+        },
+        {
+          "action": "건조 속도 완화로 내부 응력 저감"
+        }
+      ],
+      "property_impact": {
+        "electronic": "집전체-활물질 계면 접촉 상실 → 접촉 저항 급증, 해당 영역 불활성화",
+        "mechanical": "후공정(캘린더링, 슬리팅)에서 결함 확대 및 활물질 탈락",
+        "cycle_life": "사이클 중 박리 진전으로 용량 감소 가속"
+      },
+      "severity": "critical",
+      "severity_rule": "박리는 해당 영역의 전기적 기여를 상실시키므로 면적 무관하게 major 이상. 연속 발생 시 critical.",
+      "check_actions": [
+        "기재 세정 상태 및 표면 조도 확인",
+        "바인더 함량 및 분포 확인",
+        "건조 온도 프로파일 확인",
+        "코팅-기재 접착력 시험(테이프 테스트 등) 실시"
+      ],
+      "ml_note": "데이터 최소 클래스(203장). 저자 baseline에서 Recall 0.62~0.73으로 가장 낮음. 비지도 이상 탐지 검증의 주 타깃."
+    },
+    "pinhole": {
+      "name_ko": "핀홀",
+      "channel_index": 2,
+      "prevalence": "519 images (23.30%)",
+      "process_stage": "coating_drying",
+      "visual_signature": "소형 공극(void). roundness = 4*pi*A/p^2 로 정량화하며, 데이터셋 내 대부분이 1에서 크게 벗어나 불규칙함.",
+      "formation_mechanism": "코팅 갭은 슬러리가 집전체에 전달될 때 형성되는 액적 다리(liquid bead)의 안정성과 응력 분포를 결정하므로 핀홀 발생 패턴에 직결된다. 갭이 과도하게 넓을 때와 좁을 때 서로 다른 메커니즘이 작동하는 U자형 관계를 가진다.",
+      "gap_dependency": {
+        "over_gap": {
+          "condition": "코팅 갭 과대",
+          "mechanisms": [
+            "기포 포집(air entrapment): 노즐/블레이드에서 집전체까지 유동 길이가 길어져 코팅 영역 전단에 공기가 갇히고, 건조 중 터져 대형 핀홀 형성",
+            "비드 파단(bead break) 및 디웨팅: 액적 다리 불안정으로 표면장력 균형이 깨져 슬러리가 밀려나며 핀홀 및 미코팅 구역 발생",
+            "젖음성 저하로 전극 가장자리나 특정 부위가 얇아지며 국소 빈 공간 잔류"
+          ],
+          "pinhole_morphology": "불규칙하고 크기가 큰 핀홀, 디웨팅 구역"
+        },
+        "under_gap": {
+          "condition": "코팅 갭 과소",
+          "mechanisms": [
+            "고전단 응력에 의한 기포 팽창/파열: 슬러리 내 소포 형태로 숨어 있던 기포가 극도로 압축되었다가 집전체 통과 직후 팽창/파열하여 다수의 미세 핀홀 형성",
+            "응집체 걸림 및 긁힘: 활물질/도전재 응집체나 이물질이 좁은 갭에 걸려 코팅층을 긁고 지나가며 일렬 배치된 연속 핀홀 또는 스크래치 발생",
+            "자가 평탄화(leveling) 능력 상실: 슬러리 막이 지나치게 얇아 작은 거칠기에도 집전체 바닥이 노출"
+          ],
+          "pinhole_morphology": "미세하고 정밀한 핀홀, 일렬 줄무늬형 빈 공간"
+        },
+        "target_window": "통상 목표 wet 두께의 1.5~2.5배 수준 유지 (공정 속도 및 점도에 상응)",
+        "source": "도영 실무 지식. 문헌 대조 필요."
+      },
+      "root_causes": [
+        {
+          "factor": "코팅 갭 과대",
+          "direction": "비드 불안정/공기 포집 -> 대형 불규칙 핀홀",
+          "confidence": "high",
+          "category": "operational"
+        },
+        {
+          "factor": "코팅 갭 과소",
+          "direction": "고전단/기포 팽창 -> 미세 핀홀 다발",
+          "confidence": "high",
+          "category": "operational"
+        },
+        {
+          "factor": "슬러리 내 잔류 기포",
+          "direction": "탈포 부족 시 증가",
+          "confidence": "high",
+          "category": "operational"
+        },
+        {
+          "factor": "기재 표면 오염",
+          "direction": "젖음성 저하 시 증가",
+          "confidence": "high",
+          "category": "operational"
+        },
+        {
+          "factor": "응집체/이물",
+          "direction": "좁은 갭에서 일렬 핀홀 유발",
+          "confidence": "medium",
+          "category": "operational"
+        },
+        {
+          "factor": "건조 속도 과다",
+          "confidence": "medium",
+          "category": "operational"
+        }
+      ],
+      "diagnostic_rule": {
+        "description": "핀홀 형태로 원인 방향을 추정한다. 개수(밀도) 지표는 사용 불가 - 데이터가 이미 패치 단위로 분할되어 있어 단위 면적당 개수를 정의할 수 없음.",
+        "rules": [
+          {
+            "condition": "종횡비 중앙값 > 1.2 AND area_max 큼",
+            "inference": "응집체 걸림 또는 과소 갭 의심",
+            "confidence": "medium"
+          },
+          {
+            "condition": "roundness 중앙값 < 0.72",
+            "inference": "불규칙 형태 - 기계적 원인(긁힘/걸림) 의심",
+            "confidence": "medium"
+          },
+          {
+            "condition": "roundness 중앙값 > 0.78",
+            "inference": "둥근 형태 - 기포/젖음성 원인 의심",
+            "confidence": "medium"
+          }
+        ],
+        "threshold_caveat": "임계값은 CoatingVision 6개 갭 조건, 단일 런(R1 94%)에서 도출. 다른 설비/조성 일반화 미검증. 출력 시 신뢰도 medium 이하 표기 필수.",
+        "deprecated_rule": "초기안의 '면적 작고 개수 많으면 갭 과소' 규칙은 폐기. 개수 측정 불가."
+      },
+      "mitigation": [
+        {
+          "action": "코팅 갭을 목표 wet 두께의 1.5~2.5배 범위로 조정"
+        },
+        {
+          "action": "탈포 시간 연장"
+        },
+        {
+          "action": "기재 세정 강화"
+        },
+        {
+          "action": "필터 차압 확인 및 교체"
+        }
+      ],
+      "property_impact": {
+        "electronic": "국부 활물질 결손 -> 접촉 저항 증가",
+        "note": "일부 연구에서는 핀홀 및 소형 응집체 같은 경미한 결함이 전기화학 성능을 크게 저하시키지 않는다고 보고됨. 결함 유형/크기/분포와 성능의 정확한 상관관계는 미해결 문제.",
+        "source": "R1"
+      },
+      "severity": "minor",
+      "severity_rule": "개별 핀홀은 minor. 단위 면적당 밀도 기준 초과 또는 동일 위치 반복 발생 시 major 승격(설비 이상 신호). 일렬 패턴은 이물 걸림을 시사하므로 major.",
+      "check_actions": [
+        "핀홀 형태(크기/개수/규칙성) 확인하여 갭 방향 판별",
+        "코팅 갭 설정값과 목표 wet 두께 대비 확인",
+        "슬러리 탈포 상태 확인",
+        "기재 세정 및 젖음성 확인",
+        "필터 상태 확인"
+      ]
+    },
+    "unclassified": {
+      "name_ko": "미분류 결함",
+      "channel_index": 3,
+      "process_stage": "unknown",
+      "visual_signature": "이물(foreign material) 및 모호한 불규칙성. 명시적으로 분류되지 않았으나 분석에 영향을 줄 수 있음.",
+      "root_causes": [
+        {
+          "factor": "이물 혼입",
+          "confidence": "medium",
+          "category": "operational"
+        },
+        {
+          "factor": "라벨링 모호성",
+          "confidence": "medium",
+          "category": "design"
+        }
+      ],
+      "severity": "minor",
+      "severity_rule": "판정 보류. Advisor는 원인 추정을 제시하지 않고 사람 검토 큐로 전달.",
+      "check_actions": [
+        "육안 재확인 필요"
+      ],
+      "source": "R1"
+    }
+  },
+  "process_conditions": {
+    "note": "CoatingVision 데이터 생성 시 실제로 변화시킨 공정 조건. Advisor의 실측 근거로 사용.",
+    "coater": "Benchtop slot-die coater (VectorSC, FOM Technologies)",
+    "coating_speed": "0.5 m/min (고정)",
+    "coating_gap": {
+      "range": "600-1100 µm",
+      "increment": "100 µm"
+    },
+    "coating_dimensions": {
+      "width": "25 mm",
+      "distance": "75 mm"
+    },
+    "drying": "상온 40분 → 80°C 오븐 4분",
+    "solvent_variable": "물/IPA 비율 변화로 유전상수, 증발속도, 용해도 조절",
+    "observed_trends": [
+      {
+        "finding": "코팅 갭이 클수록 결함 증가",
+        "confidence": "high",
+        "source": "R1"
+      },
+      {
+        "finding": "물/알코올 비율이 높을수록 결함 증가",
+        "confidence": "high",
+        "source": "R1"
+      }
+    ],
+    "imaging": "Pixelink PL-D753CU + Navitar 12x zoom, 수직 배치, 양측 LED. 카본블랙의 광흡수 특성 때문에 셔터 속도 조정 및 감도 최대 설정 필요.",
+    "motion_blur": "실제 생산 환경의 고속 이동을 모사하기 위해 영상으로 촬영 후 프레임 추출. 해시맵 기반 중복 제거 적용."
+  },
+  "extended_reference": {
+    "note": "CoatingVision에는 라벨이 없으나 실제 전극 라인에서 발생하는 결함. 검출 대상이 아니며 Advisor의 공정 지식 참조용.",
+    "streak": {
+      "name_ko": "줄무늬",
+      "process_stage": "coating",
+      "visual_signature": "웹 진행 방향(MD) 평행 선형 결함, 일정 폭으로 연속",
+      "root_causes": [
+        {
+          "factor": "코마갭 이물 부착",
+          "confidence": "high"
+        },
+        {
+          "factor": "슬러리 내 응집체",
+          "confidence": "medium"
+        },
+        {
+          "factor": "다이 립 손상",
+          "confidence": "medium"
+        },
+        {
+          "factor": "필터 파손",
+          "confidence": "medium"
+        }
+      ],
+      "property_impact": {
+        "electronic": "국부 로딩량 편차 → 전류밀도 불균일 → 리튬 석출 위험"
+      },
+      "severity": "critical",
+      "check_actions": [
+        "코마갭 육안 확인",
+        "필터 차압 확인",
+        "슬러리 분산 상태 확인"
+      ],
+      "source": "R4"
+    },
+    "thickness_variation": {
+      "name_ko": "두께 불균일",
+      "process_stage": "coating",
+      "visual_signature": "그레이스케일 밝기의 완만한 구배 또는 주기적 변동",
+      "root_causes": [
+        {
+          "factor": "코마갭",
+          "direction": "로딩량을 지배하는 핵심 인자",
+          "confidence": "high",
+          "source": "R4"
+        },
+        {
+          "factor": "슬러리 고형분비",
+          "direction": "활물질 wt%보다 로딩량에 더 크게 작용",
+          "confidence": "high",
+          "source": "R4"
+        },
+        {
+          "factor": "슬러리 점도 변동",
+          "confidence": "high",
+          "source": "R5"
+        },
+        {
+          "factor": "코팅 속도-펌프 토출량 불일치",
+          "confidence": "medium"
+        }
+      ],
+      "rheology_note": "슬러리는 정지 상태(저전단)에서 점도가 높아야 입자 응집/침강을 막아 안정성을 확보하고, 코팅 시 인가되는 전단속도 영역(수십~수백 Hz)에서는 점도가 낮아야 가공성이 확보됨. 두 요구가 상반되어 점도 제어가 어려움.",
+      "property_impact": {
+        "cell": "로딩량 편차 → 셀 용량 산포 확대, 밸런싱 악화"
+      },
+      "severity": "major",
+      "check_actions": [
+        "점도 재측정(전단속도별)",
+        "고형분비 확인",
+        "코마갭 설정 확인",
+        "펌프 캘리브레이션"
+      ],
+      "source": "R2, R4, R5"
+    },
+    "uncoated": {
+      "name_ko": "미코팅부",
+      "process_stage": "coating",
+      "visual_signature": "집전체 금속 광택 노출 영역",
+      "root_causes": [
+        {
+          "factor": "슬러리 공급 중단",
+          "confidence": "high"
+        },
+        {
+          "factor": "기포 유입",
+          "confidence": "high"
+        },
+        {
+          "factor": "웹 장력 이상",
+          "confidence": "medium"
+        }
+      ],
+      "property_impact": {
+        "electronic": "해당 면적 완전 불활성"
+      },
+      "severity": "critical",
+      "check_actions": [
+        "공급 라인 압력 확인",
+        "탈포 상태 확인",
+        "라인 정지 검토"
+      ]
+    },
+    "roll_mark": {
+      "name_ko": "압연 자국",
+      "process_stage": "calendering",
+      "visual_signature": "폭 방향(TD) 주기적 패턴, 롤 원주에 대응하는 간격",
+      "root_causes": [
+        {
+          "factor": "롤 표면 손상",
+          "confidence": "high"
+        },
+        {
+          "factor": "이물 압착",
+          "confidence": "high"
+        }
+      ],
+      "property_impact": {
+        "ionic": "국부 기공률 이상 → 전해액 함침 불균일"
+      },
+      "severity": "critical",
+      "severity_rule": "롤 손상은 연속 발생하므로 즉시 정지 대상",
+      "check_actions": [
+        "롤 표면 검사",
+        "이물 제거"
+      ]
+    },
+    "calendering_crack": {
+      "name_ko": "압연 크랙 / 파우더링",
+      "process_stage": "calendering",
+      "visual_signature": "미세 균열, 활물질 탈락",
+      "root_causes": [
+        {
+          "factor": "압연 압력 과다",
+          "direction": "압력이 기공률과 기계적 물성을 지배",
+          "confidence": "high",
+          "source": "R3"
+        },
+        {
+          "factor": "롤 온도 부족",
+          "direction": "롤 온도가 전자전도도를 지배",
+          "confidence": "high",
+          "source": "R3"
+        }
+      ],
+      "process_window": {
+        "temperature": "60-75 °C",
+        "pressure": "60-120 MPa",
+        "objective": "1C(170 mA/g)에서 전극 체적 용량 최대화",
+        "caveat": "해당 최적 구간은 사용 설비에 의존하나, 접근법 자체는 다른 공정/설비/조건으로 이전 가능",
+        "source": "R3"
+      },
+      "property_impact": {
+        "electronic": "활물질 손실, 전자 전도 경로 손상"
+      },
+      "severity": "major",
+      "check_actions": [
+        "압연 압력 확인",
+        "롤 온도 확인",
+        "공정 윈도우 대조"
+      ]
+    },
+    "porosity_anomaly": {
+      "name_ko": "기공률 이상",
+      "process_stage": "calendering",
+      "visual_signature": "표면 반사율 변화",
+      "root_causes": [
+        {
+          "factor": "압연 압력 편차",
+          "confidence": "medium"
+        }
+      ],
+      "tradeoff_note": "캘린더링은 전극 두께/기공률을 낮춰 전자전도도, 두께 균일성, 체적 에너지밀도를 향상시키지만, 활성 표면적(전해액과 접촉하는 활물질 표면)과 전극 이온전도도를 희생시킴. 이 상충 관계가 압연 조건 결정의 핵심.",
+      "property_impact": {
+        "positive": "전자전도도 증가, 체적 에너지밀도 증가",
+        "negative": "활성 표면적 감소, 이온전도도 감소"
+      },
+      "severity": "minor",
+      "check_actions": [
+        "압력 균일도 확인",
+        "실측 기공률 대조"
+      ],
+      "source": "R2"
+    }
+  },
+  "severity_levels": {
+    "critical": {
+      "action": "즉시 폐기 + 라인 정지 검토",
+      "rank": 3
+    },
+    "major": {
+      "action": "해당 구간 폐기",
+      "rank": 2
+    },
+    "minor": {
+      "action": "기록 후 통과, 누적 감시",
+      "rank": 1
+    }
+  },
+  "escalation_rules": [
+    {
+      "rule": "동일 결함 유형이 연속 N프레임 이상 검출되면 한 단계 승격",
+      "rationale": "단발성 결함은 우발적이나 연속 발생은 설비 이상을 시사"
+    },
+    {
+      "rule": "동일 위치(정규화 좌표 기준)에서 반복 검출되면 설비 이상으로 판정",
+      "rationale": "고정 위치 반복은 다이/롤 손상 또는 이물 부착 신호"
+    },
+    {
+      "rule": "검출률 이동평균이 관리한계(3σ) 이탈 시 알람",
+      "rationale": "개별 결함이 아닌 공정 상태 변화 감지"
+    }
+  ],
+  "measured_relations": {
+    "note": "CoatingVision 데이터에서 직접 측정. 논문은 서술만 제시했고 수치는 없음. Advisor의 실측 근거로 사용 가능.",
+    "sample": "2227장 전체, classification/labels.csv 기준",
+    "gap_vs_defect_rate": {
+      "600": {
+        "n": 306,
+        "crack": 59.2,
+        "delamination": 0.0,
+        "pinhole": 38.2,
+        "clean": 8.2
+      },
+      "700": {
+        "n": 407,
+        "crack": 82.8,
+        "delamination": 10.8,
+        "pinhole": 24.3,
+        "clean": 2.5
+      },
+      "800": {
+        "n": 303,
+        "crack": 81.5,
+        "delamination": 16.5,
+        "pinhole": 28.4,
+        "clean": 2.6
+      },
+      "900": {
+        "n": 304,
+        "crack": 95.7,
+        "delamination": 1.6,
+        "pinhole": 12.8,
+        "clean": 0.3
+      },
+      "1000": {
+        "n": 230,
+        "crack": 98.3,
+        "delamination": 9.1,
+        "pinhole": 20.9,
+        "clean": 0.0
+      },
+      "1100": {
+        "n": 677,
+        "crack": 98.2,
+        "delamination": 12.3,
+        "pinhole": 19.2,
+        "clean": 0.0
+      }
+    },
+    "findings": [
+      {
+        "finding": "크랙은 갭 증가에 따라 59.2% -> 98.2% 단조 증가",
+        "interpretation": "갭 증가 = 코팅 두께 증가. 두꺼울수록 건조 크랙이 증가한다는 R1 서술과 일치.",
+        "confidence": "high"
+      },
+      {
+        "finding": "핀홀은 600um에서 38.2%로 최대, 900um에서 12.8%로 최소",
+        "interpretation": "갭-핀홀 U자형 관계의 좌측 구간을 관측한 것으로 보임. 600um 조건에서 고전단/기포팽창 메커니즘이 지배적이었을 가능성. 핀홀 형태 분석(면적/개수/roundness)으로 검증 필요.",
+        "confidence": "medium",
+        "status": "검증 진행 중 (02 스크립트)"
+      },
+      {
+        "finding": "박리는 갭과 뚜렷한 상관 없음 (0~16.5% 진동)",
+        "interpretation": "박리는 코팅 두께보다 기재 접착력과 건조 내부응력에 지배된다는 해석과 일치.",
+        "confidence": "medium"
+      }
+    ],
+    "caveats": [
+      "데이터의 94%가 R1 단일 런. R7은 132장, 700um 조건 하나뿐.",
+      "따라서 물/IPA 용매비 효과는 이 데이터로 검증 불가. 용매비를 원인 인자로 제시할 때는 문헌(R1) 인용으로만 처리할 것.",
+      "완전 정상 이미지는 44장(2.0%)이며 그중 25장이 600um 조건에 집중. 정상 데이터의 조건 편향 주의.",
+      "핀홀 밀도(단위 면적당 개수) 측정 불가. 데이터가 원본 프레임을 잘라낸 패치 단위이며(파일명 patch_N), 중복 제거로 일부 패치가 누락되어 프레임 재조립 불가."
+    ],
+    "pinhole_morphology": {
+      "method": "검출 라벨(564박스) 및 세그멘테이션 마스크(전체 2227장) 이중 측정",
+      "by_gap": {
+        "600": {
+          "area_median_box": 360.0,
+          "area_max_box": 1040,
+          "aspect_median": 1.21,
+          "roundness_median": 0.718
+        },
+        "700": {
+          "area_median_box": 360.0,
+          "area_max_box": 3685,
+          "aspect_median": 1.21,
+          "roundness_median": 0.739
+        },
+        "800": {
+          "area_median_box": 393.5,
+          "area_max_box": 3127,
+          "aspect_median": 1.19,
+          "roundness_median": 0.687
+        },
+        "900": {
+          "area_median_box": 256.0,
+          "area_max_box": 726,
+          "aspect_median": 1.07,
+          "roundness_median": 0.747
+        },
+        "1000": {
+          "area_median_box": 308.0,
+          "area_max_box": 1092,
+          "aspect_median": 1.14,
+          "roundness_median": 0.769
+        },
+        "1100": {
+          "area_median_box": 270.0,
+          "area_max_box": 783,
+          "aspect_median": 1.07,
+          "roundness_median": 0.783
+        }
+      },
+      "conclusion": {
+        "under_gap_mechanism": "지지됨. 600~800um에서 종횡비(1.19~1.21), area_max(1040~3685), roundness(0.687~0.739) 세 지표가 일관되게 '더 길쭉하고 불규칙하며 간혹 매우 큼'을 가리킴. 응집체 걸림 메커니즘과 방향 일치.",
+        "over_gap_mechanism": "관측되지 않음. 1100um에서도 대형 불규칙 핀홀 증가 없음. 실험 범위 전체가 U자형 좌측 구간으로 추정되며, 과대 갭 영역에 미도달한 것으로 보임.",
+        "status": "부분 확인. 가설 기각이 아닌 관측 범위 한계."
+      }
+    }
+  },
+  "category_definitions": {
+    "operational": "라인 운전 중 조정 가능 (건조 온도, 코팅 갭, 건조 습도, 코팅 속도, 코팅 두께 등)",
+    "design": "소재/배합/기재 설계 단계에서 결정되어 라인 운전 중 즉시 조정 불가"
+  }
+}
