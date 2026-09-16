@@ -143,14 +143,16 @@ def main():
         rec_list = sorted(stems_map.values(), key=lambda r: (r["frame_number"], r["stem"]))
         sequences[key] = rec_list
 
-    L = 3.5
-    lambda_pair = [0.1, 0.2]
+    import sys
+    method_key = sys.argv[1] if len(sys.argv) > 1 else "seg_crack"
+    L = float(sys.argv[2]) if len(sys.argv) > 2 else 3.5
+    lambda_pair = [float(x) for x in sys.argv[3].split(",")] if len(sys.argv) > 3 else [0.1, 0.2]
 
     # 각 시퀀스를 hold-out (남은 7개 시퀀스로 F1 계산)
     print("=" * 88)
-    print("§23-4 EWMA λ leave-one-out (L=3.5 고정, method=seg_crack, N=8 시퀀스)")
+    print(f"§23-4 EWMA λ leave-one-out (L={L} 고정, method={method_key}, N=8 시퀀스, λ={lambda_pair})")
     print("=" * 88)
-    print(f"{'held-out':<40}{'λ=0.1 F1':>12}{'λ=0.2 F1':>12}{'Δ (0.2−0.1)':>16}")
+    print(f"{'held-out':<40}{'λ='+str(lambda_pair[0])+' F1':>15}{'λ='+str(lambda_pair[1])+' F1':>15}{'Δ':>14}")
     print("-" * 88)
 
     seq_keys = sorted(sequences.keys(), key=lambda k: (k[0], k[1], k[2]))
@@ -159,41 +161,44 @@ def main():
         train_seqs = {k: v for k, v in sequences.items() if k != held}
         f1s = {}
         for lam in lambda_pair:
-            tp, fp, fn, tn = confusion_totals(train_seqs, "seg_crack", L, lam)
+            tp, fp, fn, tn = confusion_totals(train_seqs, method_key, L, lam)
             f1s[lam] = f1(tp, fp, fn)
         held_str = "{}/{}/{}".format(held[0], held[1], held[2][:20])
-        delta = f1s[0.2] - f1s[0.1]
-        print(f"{held_str:<40}{f1s[0.1]:>12.4f}{f1s[0.2]:>12.4f}{delta:>+16.4f}")
-        rows.append({"held_out": held_str, "L": L,
-                     "f1_lam_0_1": round(f1s[0.1], 4),
-                     "f1_lam_0_2": round(f1s[0.2], 4),
+        delta = f1s[lambda_pair[1]] - f1s[lambda_pair[0]]
+        print(f"{held_str:<40}{f1s[lambda_pair[0]]:>15.4f}{f1s[lambda_pair[1]]:>15.4f}{delta:>+14.4f}")
+        rows.append({"held_out": held_str, "method": method_key, "L": L,
+                     f"f1_lam_{lambda_pair[0]}": round(f1s[lambda_pair[0]], 4),
+                     f"f1_lam_{lambda_pair[1]}": round(f1s[lambda_pair[1]], 4),
                      "delta": round(delta, 4)})
 
     # 평균·std
     print()
     for lam in lambda_pair:
-        vals = np.array([r["f1_lam_0_1" if lam == 0.1 else "f1_lam_0_2"] for r in rows])
+        key = f"f1_lam_{lam}"
+        vals = np.array([r[key] for r in rows])
         print(f"λ={lam}: F1 mean = {vals.mean():.4f}, std = {vals.std(ddof=1):.4f} (N=8 hold-out)")
 
     deltas = np.array([r["delta"] for r in rows])
-    print(f"Δ (0.2−0.1): mean = {deltas.mean():+.4f}, std = {deltas.std(ddof=1):.4f}, min = {deltas.min():+.4f}, max = {deltas.max():+.4f}")
+    print(f"Δ (λ={lambda_pair[1]} − λ={lambda_pair[0]}): mean = {deltas.mean():+.4f}, std = {deltas.std(ddof=1):.4f}, min = {deltas.min():+.4f}, max = {deltas.max():+.4f}")
     n_pos = int((deltas > 0).sum())
     n_neg = int((deltas < 0).sum())
     n_zero = int((deltas == 0).sum())
-    print(f"Δ > 0 (λ=0.2 우세): {n_pos}/8 · Δ < 0: {n_neg}/8 · Δ = 0: {n_zero}/8")
+    print(f"Δ > 0 (λ={lambda_pair[1]} 우세): {n_pos}/8 · Δ < 0: {n_neg}/8 · Δ = 0: {n_zero}/8")
 
     # 전 데이터 (LOO 없이) 재확인
     for lam in lambda_pair:
-        tp, fp, fn, tn = confusion_totals(sequences, "seg_crack", L, lam)
+        tp, fp, fn, tn = confusion_totals(sequences, method_key, L, lam)
         print(f"전 데이터 λ={lam}: TP={tp} FP={fp} FN={fn} TN={tn} F1={f1(tp,fp,fn):.4f}")
 
     # 저장
-    with open("results_lambda_loo.csv", "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["held_out", "L", "f1_lam_0_1", "f1_lam_0_2", "delta"])
+    out_csv = f"results_lambda_loo_{method_key}.csv"
+    fields = ["held_out", "method", "L", f"f1_lam_{lambda_pair[0]}", f"f1_lam_{lambda_pair[1]}", "delta"]
+    with open(out_csv, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         for r in rows:
             w.writerow(r)
-    print("\n저장: results_lambda_loo.csv")
+    print(f"\n저장: {out_csv}")
 
 
 main()
