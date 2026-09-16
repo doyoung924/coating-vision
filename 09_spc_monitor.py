@@ -594,6 +594,7 @@ def main():
         while index < len(analysis["records"]):
             record = analysis["records"][index]
             row = {}
+            row["stem"] = record["stem"]
             row["run_id"] = key[0]
             row["coating_gap"] = key[1]
             row["position"] = key[2]
@@ -621,7 +622,7 @@ def main():
             all_alerts.append(alert_row)
 
     write_csv(RESULT_PATH,
-              ["run_id", "coating_gap", "position", "frame_number", "defect_ratio",
+              ["stem", "run_id", "coating_gap", "position", "frame_number", "defect_ratio",
                "moving_average", "ewma", "ucl", "center",
                "label_crack", "label_delam", "label_pinhole"],
               all_records)

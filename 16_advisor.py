@@ -707,11 +707,21 @@ def build_relative_outlier_message(outlier, defect_map):
 
 
 def format_cause_line(cause):
-    """단일 root_cause 를 한 줄 텍스트로 렌더링."""
+    """단일 root_cause 를 한 줄 텍스트로 렌더링.
+
+    source 필드가 없거나 "?" 이면 confidence 를 low 로 강등하고
+    src 자리에 "출처 미기재" 라고 명시한다.
+    """
     factor = cause.get("factor", "?")
     direction = cause.get("direction", "")
     confidence = cause.get("confidence", "?")
-    source = cause.get("source", "?")
+    source_raw = cause.get("source")
+
+    if source_raw is None or source_raw == "" or source_raw == "?":
+        source = "출처 미기재"
+        confidence = "low"
+    else:
+        source = source_raw
 
     text = "- " + factor
     if len(direction) > 0:
@@ -992,7 +1002,8 @@ def format_sequence_report(analysis):
     lines = []
     header = "R" + key[0][1:] + " / " + str(key[1]) + "µm / " + key[2]
     lines.append("=" * 82)
-    lines.append("[" + header + "]  판정: " + spc["capability"])
+    lines.append("[" + header + "]  판정: " + spc["capability"]
+                 + "  (임의 임계 " + format(CAPABILITY_MARGINAL, ".2f") + " 기반, 근거 부재)")
     lines.append("=" * 82)
     lines.append("")
 
@@ -1093,6 +1104,19 @@ def format_global_summary(analyses):
     lines.append("=" * 82)
     lines.append("전체 시퀀스 판정 요약")
     lines.append("=" * 82)
+    lines.append("")
+    lines.append(
+        "  판정 기준: center < " + format(CAPABILITY_GOOD, ".2f") + " → GOOD, "
+        "< " + format(CAPABILITY_MARGINAL, ".2f") + " → MARGINAL, "
+        "≥ " + format(CAPABILITY_MARGINAL, ".2f") + " → INCAPABLE."
+    )
+    lines.append(
+        "  임계값 " + format(CAPABILITY_MARGINAL, ".2f") + " 는 임의값 "
+        "(experiment_log.md §9-4 '물리적 근거가 없으며'). 실제 라인에서는"
+    )
+    lines.append(
+        "  제품 품질 규격에서 도출되어야 함. 절대 수치가 아닌 상대 순위로만 해석."
+    )
     lines.append("")
     header = ("  " + "시퀀스".ljust(38) + "center    UCL       판정          알람")
     lines.append(header)
@@ -1268,6 +1292,12 @@ def main():
         "schema_version": "0.1",
         "domain_gap_note": defect_map.get("domain_gap_note"),
         "verification_status": defect_map.get("verification_status"),
+        "capability_threshold_note": {
+            "good_boundary": CAPABILITY_GOOD,
+            "marginal_boundary": CAPABILITY_MARGINAL,
+            "arbitrary": True,
+            "reason": "10_spc_tuning.py:46 CAPABILITY_THRESHOLD = 0.25. experiment_log.md §9-4 '임의값이다. 물리적 근거가 없으며'. §15-10 재검증에서 area_or 도메인에 같은 임계를 적용하자 8 중 7 이 CAPABLE 로 뒤집힘. 절대 수치가 아닌 상대 순위로만 해석.",
+        },
         "sequences": []
     }
     for analysis in analyses:
