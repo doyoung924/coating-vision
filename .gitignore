@@ -2,6 +2,15 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 환경 변수 (§3단계 3-1). DB 비밀번호 포함이라 커밋 금지.
+.env
+
+# 로그 (§3-8). 개인 정보·검사 이력 포함 가능이라 커밋 금지.
+logs/
 
 # 데이터셋 (CC BY-NC-ND 4.0 - 재배포 제한, 원본 및 파생 모두 제외)
 classification/
@@ -38,3 +47,36 @@ experiment_log.py
 # IDE
 .vscode/
 .idea/
+
+# 대시보드 업로드 (사용자가 넣는 임시 이미지). §2단계 (d) 이후 app/static/ 아래로 이동.
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+# 대시보드 예시 샘플 (CC BY-NC-ND 4.0 데이터셋 파생 → 재배포 금지, 로컬 복사만)
+app/static/samples/*.jpg
+app/static/samples/*.png
+
+# Playwright 캡처 결과물 (데이터셋 파생 이미지 포함되므로 로컬만)
+capture/
+
+# 실험 결과 CSV (재생성 가능). 예외: 웹앱 부팅 필수 / 초기 커밋 포함.
+results_*.csv
+!results_benchmark.csv
+!results_robustness.csv
+!results_spc.csv
+
+# 캐시·중간 산출물 (재생성 가능)
+detections_cache.json
+manifest_ambiguous.csv
+stream_data/
+
+# 재검증 백업본 (원 값은 experiment_log.md 서술에 명시됨)
+advisor_report_prev.json
+advisor_report_prev.txt
+splits_prev.csv
+
+# 문서·발표에서 참조하지 않는 figures (SPC 시각화 원본, 재생성 가능)
+figures/spc_R1_*.png
+figures/spc_R7_*.png
+figures/spc_summary.png
+figures/r7_control_chart_detail.png
