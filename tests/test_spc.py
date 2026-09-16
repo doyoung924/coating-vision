@@ -193,6 +193,238 @@ class TestMetricLambdaSeparation:
         assert abs(e_seg - value) < abs(e_a3 - value)
 
 
+class TestCountMetricDefinition:
+    """FR-57 — 계수형 지표 (pinhole_count) 가 METRICS 매핑에 등록되고
+    관련 파생 뷰가 일관되는지 검증. 순수 상수 검사, DB 접근 없음.
+
+    검증 축:
+    1) METRICS 에 pinhole_count 가 kind='count', lambda=None 으로 존재
+    2) VALID_METRICS 에 pinhole_count 포함
+    3) EWMA_LAMBDAS 뷰가 pinhole_count 를 None 으로 노출 (FR-31 회귀 방지)
+    """
+
+    def test_pinhole_count_registered_as_count_kind(self):
+        assert spc_service.METRICS["pinhole_count"]["kind"] == "count"
+
+    def test_pinhole_count_lambda_is_none(self):
+        """설계 §1 (다) — 1차 범위에서 EWMA 미적용."""
+        assert spc_service.METRICS["pinhole_count"]["lambda"] is None
+
+    def test_pinhole_count_in_valid_metrics(self):
+        assert "pinhole_count" in spc_service.VALID_METRICS
+
+    def test_ewma_lambdas_view_reflects_none_for_count(self):
+        """FR-31 회귀 방지: EWMA_LAMBDAS 는 METRICS 로부터 파생. 계수형은 None."""
+        assert spc_service.EWMA_LAMBDAS["pinhole_count"] is None
+
+
+class TestCountMetricFormula:
+    """FR-57 (I) — 계수형 관리한계 산출식 CENTER + 3·√CENTER, LCL=0.
+
+    Poisson 분산 특성 (Var = mean) → σ 를 √c̄ 로 대체. 순수 계산, DB 접근 없음.
+    """
+
+    def test_count_upper_equals_center_plus_3_sqrt_center(self):
+        import math
+        baseline = [1, 2, 0, 3, 1, 2, 1, 0, 4, 1, 2, 3, 1, 0, 2,
+                    1, 3, 2, 0, 1, 2, 1, 0, 3, 1, 2, 0, 1, 2, 4]
+        result = spc_service._compute_count_limits(baseline)
+        expected_center = sum(baseline) / len(baseline)
+        expected_upper = expected_center + 3.0 * math.sqrt(expected_center)
+        assert abs(result["center"] - expected_center) < 1e-12
+        assert abs(result["upper"] - expected_upper) < 1e-12
+
+    def test_count_lower_is_zero(self):
+        """FR-57 (IV) — 계수형 LCL 은 0 클리핑, 알람 판정에도 미사용."""
+        baseline = [1, 2, 3, 0, 1, 2, 1, 3, 0, 2] * 3
+        result = spc_service._compute_count_limits(baseline)
+        assert result["lower"] == 0.0
+
+    def test_count_sigma_is_none(self):
+        """계수형은 표본 σ 개념이 다름 (√c̄ 로 대체). sigma 반환 없음."""
+        baseline = [1, 2, 3, 0, 1, 2] * 5
+        result = spc_service._compute_count_limits(baseline)
+        assert result["sigma"] is None
+
+
+class TestComputeLimitsDispatch:
+    """FR-57 (VI) — _compute_limits 가 metric 종류에 따라 산출식을 분기.
+
+    연속형 회귀 없음 (4단계 직접 확인을 테스트로 고정) + 계수형 분기 확인 +
+    unknown kind 방어. 순수 계산, DB 접근 없음.
+    """
+
+    _CONT_BASELINE = [
+        0.02, 0.03, 0.025, 0.04, 0.015, 0.035, 0.028, 0.033, 0.022, 0.038,
+        0.027, 0.031, 0.024, 0.036, 0.029, 0.032, 0.026, 0.034, 0.023, 0.037,
+        0.019, 0.030, 0.021, 0.039, 0.017, 0.041, 0.028, 0.032, 0.024, 0.036,
+    ]
+
+    def test_continuous_dispatch_matches_original_for_a3(self):
+        """FR-57 (VI): 연속형 회귀 없음. _compute_limits('a3') 결과가
+        기존 compute_control_limits(...·SIGMA_LIMIT) 와 모든 필드 완전 일치."""
+        by_dispatch = spc_service._compute_limits(self._CONT_BASELINE, "a3")
+        by_original = spc_service.compute_control_limits(
+            self._CONT_BASELINE, spc_service.SIGMA_LIMIT,
+        )
+        for key in ("center", "sigma", "upper", "lower"):
+            assert by_dispatch[key] == by_original[key], (
+                "연속형 회귀: 필드 {} 불일치 ({} vs {})".format(
+                    key, by_dispatch[key], by_original[key])
+            )
+
+    def test_continuous_dispatch_matches_original_for_seg_crack(self):
+        """seg_crack 도 동일한 산출식이 적용되는지 (kind 만 동일하면 결과 같음)."""
+        by_a3 = spc_service._compute_limits(self._CONT_BASELINE, "a3")
+        by_seg = spc_service._compute_limits(self._CONT_BASELINE, "seg_crack")
+        for key in ("center", "sigma", "upper", "lower"):
+            assert by_a3[key] == by_seg[key]
+
+    def test_count_dispatch_matches_count_formula(self):
+        """계수형 분기: _compute_limits('pinhole_count') 결과가
+        _compute_count_limits 와 완전 일치."""
+        counts = [1, 2, 0, 3, 1, 2, 1, 0, 4, 1] * 3
+        by_dispatch = spc_service._compute_limits(counts, "pinhole_count")
+        by_direct = spc_service._compute_count_limits(counts)
+        assert by_dispatch == by_direct
+
+    def test_unknown_kind_raises_valueerror(self, monkeypatch):
+        """METRICS 에 알 수 없는 kind 를 가진 metric 이 들어오면 명확히 실패.
+        monkeypatch 로 임시 등록 후 복원."""
+        monkeypatch.setitem(
+            spc_service.METRICS, "pytest_unknown_kind",
+            {"kind": "weird_kind", "lambda": None},
+        )
+        with pytest.raises(ValueError, match="unknown metric kind"):
+            spc_service._compute_limits([1, 2, 3], "pytest_unknown_kind")
+
+
+class TestCountMetricEndToEnd:
+    """FR-57 (b)(c)(d) 통합 검증 — 계수형 baseline 30 점 축적 후 monitor
+    브랜치에서 ewma=None · is_alarm=value>UCL 동작을 실측.
+
+    프로덕션 오염 방지 방식:
+    - 실행 전 SPC_POINTS WHERE metric='pinhole_count' = 0 이어야 함 (실측 확인).
+      새 metric 이라 프로덕션 코드가 아직 저장하지 않음 (설계 §5-3, 마이그레이션
+      3단계 실측 0 건).
+    - baseline 은 inspector_user fixture 소유 검사로만 생성 → fixture finalizer
+      가 CASCADE 로 SPC_POINTS 도 삭제.
+    - 실행 후 SPC_POINTS WHERE metric='pinhole_count' = 0 확인.
+    """
+
+    def test_count_metric_baseline_and_monitor_alarm_logic(self, inspector_user):
+        import math
+        from sqlalchemy import func
+
+        # 실행 전 오염 없음 검증
+        with app_db.get_session() as s:
+            before = int(s.query(func.count(SpcPoint.id)).filter(
+                SpcPoint.metric == "pinhole_count",
+            ).scalar() or 0)
+        assert before == 0, (
+            "테스트 시작 시 pinhole_count 잔여 {} 건 — 오염 방지 원칙 위반".format(before)
+        )
+
+        try:
+            # baseline 30 점 생성. 각 값은 포아송(1.5) 근사 임의 counts
+            baseline_values = [1, 2, 0, 3, 1, 2, 1, 0, 4, 1, 2, 3, 1, 0, 2,
+                               1, 3, 2, 0, 1, 2, 1, 0, 3, 1, 2, 0, 1, 2, 4]
+            assert len(baseline_values) == spc_service.BASELINE_SIZE
+
+            inspection_ids = []
+            with app_db.get_session() as s:
+                for i in range(spc_service.BASELINE_SIZE):
+                    insp = Inspection(
+                        user_id=inspector_user["id"],
+                        file_name="pytest_count_bl_{}_{}.jpg".format(UID(), i),
+                        source="upload", status="normal",
+                    )
+                    s.add(insp); s.flush()
+                    inspection_ids.append(int(insp.id))
+                s.commit()
+
+            for iid, v in zip(inspection_ids, baseline_values):
+                spc_service.add_spc_point(iid, "pinhole_count", v)
+
+            # baseline_complete 확인
+            summary = spc_service.get_summary("pinhole_count")
+            assert summary["total_points"] == spc_service.BASELINE_SIZE
+            assert summary["baseline_complete"] is False  # BASELINE_SIZE+1 초과 필요
+
+            # get_summary 의 ewma_lambda 가 계수형에서 None
+            assert summary["ewma_lambda"] is None
+
+            # monitor 브랜치 진입: 31 번째 점 (baseline 완성 계기).
+            # 이 시점의 UCL 예상값 계산 (assert 를 위해)
+            expected_center = sum(baseline_values) / len(baseline_values)
+            expected_ucl = expected_center + 3.0 * math.sqrt(expected_center)
+
+            # (i) value < UCL → 알람 없음, ewma=None
+            with app_db.get_session() as s:
+                insp = Inspection(user_id=inspector_user["id"],
+                                  file_name="pytest_count_ok.jpg",
+                                  source="upload", status="normal")
+                s.add(insp); s.flush()
+                normal_iid = int(insp.id)
+                s.commit()
+            below_value = 2  # UCL(=약 5.25) 아래
+            result_below = spc_service.add_spc_point(normal_iid, "pinhole_count", below_value)
+            assert result_below["phase"] == "monitor"
+            assert result_below["ewma"] is None, (
+                "계수형은 ewma=None 이어야 함 (설계 §1 (다)). 실제: {}".format(
+                    result_below["ewma"])
+            )
+            assert result_below["is_alarm"] is False
+            assert abs(result_below["ucl"] - expected_ucl) < 1e-9
+
+            # (ii) value > UCL → 알람, ewma 여전히 None
+            with app_db.get_session() as s:
+                insp = Inspection(user_id=inspector_user["id"],
+                                  file_name="pytest_count_alarm.jpg",
+                                  source="upload", status="normal")
+                s.add(insp); s.flush()
+                alarm_iid = int(insp.id)
+                s.commit()
+            above_value = int(expected_ucl) + 2  # UCL 확실히 초과
+            result_above = spc_service.add_spc_point(alarm_iid, "pinhole_count", above_value)
+            assert result_above["phase"] == "monitor"
+            assert result_above["ewma"] is None, (
+                "계수형은 alarm 판정에도 ewma=None 유지 — value > UCL 만으로 알람"
+            )
+            assert result_above["is_alarm"] is True
+
+            # DB 에 저장된 값도 확인 (반환값과 스토리지 일관성)
+            with app_db.get_session() as s:
+                stored = s.query(SpcPoint).filter(
+                    SpcPoint.inspection_id == alarm_iid,
+                    SpcPoint.metric == "pinhole_count",
+                ).one()
+                assert stored.ewma is None
+                assert int(stored.is_alarm) == 1
+
+        finally:
+            # fixture finalizer 가 inspector_user 소유 Inspection 을 CASCADE 삭제 →
+            # SPC_POINTS pinhole_count 도 정리됨. 명시 검증은 다음 assert 참조.
+            pass
+
+        # fixture finalizer 는 test 종료 이후에 돌므로 여기서 잔여 assert 불가.
+        # 별도 test 로 정리 검증.
+
+
+class TestCountMetricCleanupInvariant:
+    """앞 TestCountMetricEndToEnd 종료 후 pinhole_count 잔여가 0 인지 검증.
+    fixture finalizer 가 CASCADE 삭제하는지 확인. 순서 의존 (pytest 는 클래스
+    선언 순서 기준). 명시적 순서 강제는 하지 않고 상태만 확인."""
+
+    def test_no_pinhole_count_pollution_after_end_to_end(self):
+        from sqlalchemy import func
+        with app_db.get_session() as s:
+            n = int(s.query(func.count(SpcPoint.id)).filter(
+                SpcPoint.metric == "pinhole_count",
+            ).scalar() or 0)
+        assert n == 0, "테스트 종료 후 pinhole_count 잔여 {} 건 — CASCADE 정리 실패".format(n)
+
+
 class TestAlarmTransition:
     """알람 발생 시 INSPECTIONS.STATUS 전이 (baseline 이 완성된 상태 가정)."""
 
