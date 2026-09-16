@@ -118,3 +118,112 @@ skipped 1건은 `test_status_becomes_alarm_when_spc_triggers` — baseline 미�
 - **기존 데이터 오염 금지**: 모든 삭제는 `pytest_*` 접두사 사용자 소유로 한정
 - **모델 로드 없음**: `fake_inspection_result` fixture 로 대체
 - **통과시키려고 기능 코드 변경 금지**: 3-10 에서 발견된 버그 (`/admin/users` DEFAULT_PAGE_SIZE=30) 는 수정. 그 외 코드 변경 없음
+
+---
+
+## 수동 검증 시나리오
+
+프로덕션 metric 오염을 피하기 위해 pytest 자동화 밖으로 분리한 시나리오.
+
+### SPC baseline gap 시나리오 (FR-56 (a)(b))
+
+**왜 자동화하지 않았는가**:
+- `SPC_POINTS.METRIC` 은 `CHECK (METRIC IN ('a3','seg_crack'))` 로 두 값만 허용. 테스트 전용 metric 사용 불가
+- 자동화를 위한 CHECK 완화는 앱을 우회한 경로의 잘못된 metric 유입을 막는 DB 제약의 목적과 배치됨 (`docs/design-spc-baseline.md` §5-3 D-1 탈락 사유)
+- 프로덕션 metric='a3' 로 30점을 심으면 SEQ_NO 가 실 시퀀스에 섞임. 시나리오 실행 중 다른 세션이 검사를 저장하면 pytest 픽스처 데이터와 프로덕션 데이터 구분 불가
+
+**실행 조건**:
+1. `SPC_POINTS` 에서 `metric='a3'` 데이터가 비어 있는 상태에서만 실행 (실행 전 `SELECT COUNT(*) FROM SPC_POINTS WHERE metric='a3'` = 0 확인)
+2. 다른 사용자가 검사를 실행하지 않는 시점 (야간 · 격리 환경) 에서 실행 권장
+3. **프로덕션 라이브 DB 에서 실행 금지**. 개발용 로컬 Oracle 11g 인스턴스에서만
+
+**재현 절차** (아래 스크립트를 `tools/manual_test_fr56.py` 로 저장하거나 REPL 에 붙여 실행):
+
+```python
+import uuid
+from app import create_app
+from app import db as app_db
+from app.models import Inspection, SpcPoint, User
+from app.services import spc as spc_service
+from sqlalchemy import func
+
+app = create_app()
+
+# 실행 전 상태 캡처. 이미 데이터가 있으면 중단.
+with app_db.get_session() as s:
+    admin = s.query(User).filter(User.username == "admin").one()
+    before_count = int(s.query(func.count(SpcPoint.id)).filter(
+        SpcPoint.metric == "a3").scalar() or 0)
+if before_count > 0:
+    raise SystemExit("metric='a3' 에 기존 데이터 존재. 시나리오 중단 (오염 방지)")
+
+tag = "fr56_" + uuid.uuid4().hex[:8]
+inspection_ids = []
+try:
+    # 1) 30개 검사 · 30개 SPC 점 생성
+    with app_db.get_session() as s:
+        for i in range(30):
+            insp = Inspection(user_id=admin.id,
+                              file_name=tag + "_" + str(i) + ".jpg",
+                              source="upload", a3_ratio=0.01 * (i + 1),
+                              status="normal")
+            s.add(insp); s.flush()
+            inspection_ids.append(int(insp.id))
+        s.commit()
+    for i, iid in enumerate(inspection_ids):
+        spc_service.add_spc_point(iid, "a3", 0.01 * (i + 1))
+
+    # 2) 중간 10점 삭제 (CASCADE 로 SPC 도 삭제)
+    delete_ids = inspection_ids[10:20]
+    with app_db.get_session() as s:
+        s.query(Inspection).filter(Inspection.id.in_(delete_ids)).delete(
+            synchronize_session=False)
+        s.commit()
+    inspection_ids = [i for i in inspection_ids if i not in delete_ids]
+
+    # 3) 상태 확인 (get_summary — FR-56 (b))
+    sm = spc_service.get_summary("a3")
+    print("(b) total_points=%d, baseline_complete=%s" % (
+        sm["total_points"], sm["baseline_complete"]))
+    assert sm["total_points"] == 20
+    assert sm["baseline_complete"] is False
+
+    # 4) 새 점 진입 (FR-56 (a))
+    with app_db.get_session() as s:
+        new_insp = Inspection(user_id=admin.id, file_name=tag + "_new.jpg",
+                              source="upload", a3_ratio=0.5, status="normal")
+        s.add(new_insp); s.flush()
+        new_iid = int(new_insp.id)
+        s.commit()
+    inspection_ids.append(new_iid)
+    report = spc_service.add_spc_point(new_iid, "a3", 0.5)
+    print("(a) phase=%r, center=%s, ucl=%s" % (
+        report["phase"], report["center"], report["ucl"]))
+    assert report["phase"] == "baseline"
+
+finally:
+    # 정리: CASCADE 로 SPC_POINTS 도 삭제
+    with app_db.get_session() as s:
+        s.query(Inspection).filter(Inspection.id.in_(inspection_ids)).delete(
+            synchronize_session=False)
+        s.commit()
+
+# 원상복구 확인
+with app_db.get_session() as s:
+    after = int(s.query(func.count(SpcPoint.id)).filter(
+        SpcPoint.metric == "a3").scalar() or 0)
+assert after == 0, "정리 실패: metric='a3' 잔여 %d 건" % after
+print("정리 완료")
+```
+
+**기대 결과**:
+- **(b)**: `total_points=20`, `baseline_complete=False`
+- **(a)**: `phase='baseline'`, `center=None`, `ucl=None` (baseline 단계이므로 관리한계 미산출)
+- 스크립트 종료 후 `metric='a3'` 데이터 0건 (원상복구)
+
+**실측 (2026-09-16)**: 수정 커밋 `115ee0c` 반영 후 실행. 위 기대 결과 그대로 확인. 실행 전 total=0, 실행 중 total=30→20→21, finally 블록 정리 후 total=0. 실행 이력은 커밋 히스토리 (§4단계 보고) 참조.
+
+**주의사항**:
+- `finally` 블록이 반드시 실행되도록 예외 처리 유지. `KeyboardInterrupt` 로 강제 종료 시 잔여 데이터 남을 수 있음 — 이 경우 `DELETE FROM INSPECTIONS WHERE file_name LIKE 'fr56_%'` 로 수동 정리
+- FR-56 (c) 는 tests/test_spc.py::TestBaselineJudgmentConsistency 로 자동 검증됨
+- FR-56 (d) 는 `_process_spc_and_status` 의 try/except 로직 (`inspection_store.py:118-136`) 으로 코드 리뷰 수준 검증. NFR-17 도 동일 방식이며 별도 자동 테스트 없음
