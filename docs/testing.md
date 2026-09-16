@@ -227,3 +227,111 @@ print("정리 완료")
 - `finally` 블록이 반드시 실행되도록 예외 처리 유지. `KeyboardInterrupt` 로 강제 종료 시 잔여 데이터 남을 수 있음 — 이 경우 `DELETE FROM INSPECTIONS WHERE file_name LIKE 'fr56_%'` 로 수동 정리
 - FR-56 (c) 는 tests/test_spc.py::TestBaselineJudgmentConsistency 로 자동 검증됨
 - FR-56 (d) 는 `_process_spc_and_status` 의 try/except 로직 (`inspection_store.py:118-136`) 으로 코드 리뷰 수준 검증. NFR-17 도 동일 방식이며 별도 자동 테스트 없음
+
+### 계수형 baseline UCL 시나리오 (FR-57 (a))
+
+**왜 자동화하지 않았는가**:
+- FR-57 검증 기준 (a) 는 baseline 30 점을 심은 뒤 저장 완료된 최신 SpcPoint 행의 UCL 값이 실제로 `c̄ + 3·√c̄` 로 저장되었는지 DB 상에서 확인하는 것이 목적. 산출식 자체는 `tests/test_spc.py::TestCountMetricFormula` 로 순수 계산 검증했으나, "실제로 SPC_POINTS 테이블에 그 값이 저장되는가" 는 트랜잭션·flush·컬럼 정밀도 (NUMBER(10,6)) 문제를 포함한다
+- `TestCountMetricEndToEnd` 는 반환값의 UCL 을 assert 하지만, 저장된 컬럼값을 DB 반올림 이후 직접 조회해서 산출식과 일치하는지까지는 검증하지 않음 (30 개 baseline 심고 반환값 비교로 대체)
+- 실제 저장 시나리오는 자동화 시 `SPC_POINTS.METRIC='pinhole_count'` 로 30+ 점을 저장하므로 프로덕션 오염 우려 유효. `pinhole_count` 는 계수형 신규 지표라 CHECK 는 허용하나, 자동화 테스트 종료 후 잔여 확인은 `TestCountMetricCleanupInvariant` 로만 한다
+
+**실행 조건**:
+1. 실행 전 `SELECT COUNT(*) FROM SPC_POINTS WHERE metric='pinhole_count'` = 0 확인
+2. 프로덕션 라이브 DB 에서 실행 금지. 개발용 로컬 Oracle 11g 인스턴스에서만
+
+**재현 절차** (REPL 붙여 실행 또는 `tools/manual_test_fr57.py` 로 저장):
+
+```python
+import math
+import uuid
+from app import create_app
+from app import db as app_db
+from app.models import Inspection, SpcPoint, User
+from app.services import spc as spc_service
+from sqlalchemy import func
+
+app = create_app()
+
+with app_db.get_session() as s:
+    admin = s.query(User).filter(User.username == "admin").one()
+    before = int(s.query(func.count(SpcPoint.id)).filter(
+        SpcPoint.metric == "pinhole_count").scalar() or 0)
+if before > 0:
+    raise SystemExit("metric='pinhole_count' 잔여 %d 건 — 시나리오 중단" % before)
+
+tag = "fr57_" + uuid.uuid4().hex[:8]
+baseline_values = [1, 2, 0, 3, 1, 2, 1, 0, 4, 1, 2, 3, 1, 0, 2,
+                   1, 3, 2, 0, 1, 2, 1, 0, 3, 1, 2, 0, 1, 2, 4]
+assert len(baseline_values) == spc_service.BASELINE_SIZE
+
+inspection_ids = []
+try:
+    with app_db.get_session() as s:
+        for i in range(spc_service.BASELINE_SIZE):
+            insp = Inspection(user_id=admin.id,
+                              file_name=tag + "_" + str(i) + ".jpg",
+                              source="upload", status="normal")
+            s.add(insp); s.flush()
+            inspection_ids.append(int(insp.id))
+        s.commit()
+    for iid, v in zip(inspection_ids, baseline_values):
+        spc_service.add_spc_point(iid, "pinhole_count", v)
+
+    # baseline 완성 계기 (31 번째 점)
+    with app_db.get_session() as s:
+        insp = Inspection(user_id=admin.id, file_name=tag + "_trigger.jpg",
+                          source="upload", status="normal")
+        s.add(insp); s.flush()
+        trigger_iid = int(insp.id)
+        s.commit()
+    inspection_ids.append(trigger_iid)
+    result = spc_service.add_spc_point(trigger_iid, "pinhole_count", 2)
+
+    # 저장된 SpcPoint 를 DB 에서 직접 조회
+    with app_db.get_session() as s:
+        row = s.query(SpcPoint).filter(
+            SpcPoint.inspection_id == trigger_iid,
+            SpcPoint.metric == "pinhole_count").one()
+        stored_center = float(row.center)
+        stored_ucl = float(row.ucl)
+        stored_ewma = row.ewma
+        stored_alarm = int(row.is_alarm)
+
+    expected_center = sum(baseline_values) / len(baseline_values)
+    expected_ucl = expected_center + 3.0 * math.sqrt(expected_center)
+
+    print("center: stored=%.6f  expected=%.6f" % (stored_center, expected_center))
+    print("ucl   : stored=%.6f  expected=%.6f" % (stored_ucl, expected_ucl))
+    print("ewma  : %r  (계수형이므로 None 이어야 함)" % (stored_ewma,))
+    print("alarm : %d  (value=2 < UCL 이므로 0)" % stored_alarm)
+
+    assert abs(stored_center - expected_center) < 1e-4
+    assert abs(stored_ucl - expected_ucl) < 1e-4
+    assert stored_ewma is None
+    assert stored_alarm == 0
+
+finally:
+    with app_db.get_session() as s:
+        s.query(Inspection).filter(Inspection.id.in_(inspection_ids)).delete(
+            synchronize_session=False)
+        s.commit()
+
+with app_db.get_session() as s:
+    after = int(s.query(func.count(SpcPoint.id)).filter(
+        SpcPoint.metric == "pinhole_count").scalar() or 0)
+assert after == 0, "정리 실패: pinhole_count 잔여 %d 건" % after
+print("정리 완료")
+```
+
+**기대 결과**:
+- `stored_center ≈ 1.5333`, `stored_ucl ≈ 5.2482` (c̄=46/30, UCL=c̄+3√c̄)
+- `stored_ewma == None` (계수형 EWMA 미적용, 설계 §1 (다))
+- `stored_alarm == 0` (value=2 < UCL)
+- 스크립트 종료 후 `metric='pinhole_count'` 데이터 0 건
+
+**실측 (2026-09-16)**: 실행 결과 stored_center=1.533333, stored_ucl=5.248168 로 산출식 (c̄=46/30=1.533..., UCL=c̄+3√c̄=5.248...) 과 NUMBER(10,6) 반올림 정밀도 내 일치. stored_ewma=None, stored_alarm=0 확인. finally 블록에서 pinhole_count 잔여 0 건으로 원상복구.
+
+**주의사항**:
+- `finally` 블록으로 반드시 정리. `KeyboardInterrupt` 등으로 강제 종료 시 잔여 데이터 남으면 `DELETE FROM INSPECTIONS WHERE file_name LIKE 'fr57_%'` 로 수동 정리
+- FR-57 (b)(c)(d) 는 `tests/test_spc.py` 의 `TestCountMetricFormula` · `TestComputeLimitsDispatch` · `TestCountMetricEndToEnd` · `TestCountMetricCleanupInvariant` 로 자동 검증됨
+- 계수형 metric 을 UI/API 에 노출하려면 `app/routes/spc.py` · `app/api/spc.py` 의 VALID_METRICS 하드코딩 (`("a3","seg_crack")`) 을 확장하거나 `spc_service.VALID_METRICS` 로 파생해야 함. 이번 5단계 범위 밖 (설계 §7: "UI 변경 없음")
