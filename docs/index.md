@@ -13,6 +13,7 @@
 | [`uml.md`](uml.md) | Use Case · Class (도메인+애플리케이션) · Sequence 4개 (모두 mermaid) | 발표·보고서 · 개발자 |
 | [`testing.md`](testing.md) | pytest 실행 방법 · 테스트 구조 · **DB 격리 전략** · 커버리지 | 개발자 · QA |
 | [`metrics.md`](metrics.md) | 정량 수치 실측표 (단일 출처). 라우트·테이블·pytest·커버리지·모델 성능·폐기 수치 통합. 재측정 명령 포함 | 발표·보고서 · 문서 간 수치 대조 |
+| [`design-spc-baseline.md`](design-spc-baseline.md) | FR-56 (SPC baseline 판정 견고성) 설계 문서. 판정 기준 후보 비교·변경 지점·SEQ_NO 역할 재정의·검증 계획 | 해당 결함 수정 진행자 |
 | [`experiment_log.md`](experiment_log.md) | §1~§22 실험 이력 · 세션별 시도·실패·개선 (외부 문서, 이 인덱스 밖) | 프로젝트 이력 참조 |
 
 ## 읽는 순서 추천
