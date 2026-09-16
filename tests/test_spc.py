@@ -74,7 +74,8 @@ class TestCalculationMatches09:
 
     def test_ewma_formula(self):
         # 09 의 재귀식과 spc._next_ewma 가 동일
-        lambda_v = 0.1
+        # FR-31: λ 는 metric 별 매핑에서 조회 (a3 기준으로 계산식 검증)
+        lambda_v = spc_service.EWMA_LAMBDAS["a3"]
         center = 0.1
         # 09 원문 재귀
         prev = center
@@ -131,6 +132,65 @@ class TestBaselineJudgmentConsistency:
                 "저장 후 baseline_complete={}. "
                 "두 판정이 일치해야 함.".format(t, phase, baseline_complete_after)
             )
+
+
+class TestMetricLambdaSeparation:
+    """FR-31 — EWMA 평활 계수 λ 가 metric 별로 지정되고 실제 적용되는지 검증.
+
+    §23-5 결정: a3 = 0.1, seg_crack = 0.2. 검증 축:
+    1) EWMA_LAMBDAS 매핑에 두 metric 이 등록되어 있고 각각 다른 값
+    2) VALID_METRICS 가 EWMA_LAMBDAS.keys() 에서 파생 (일치 강제)
+    3) get_summary 가 metric 별 λ 를 반환 (add_spc_point 도 같은 매핑 접근)
+    4) 매핑에 없는 metric 은 조용히 기본값을 쓰지 않고 명확히 실패
+    5) _next_ewma 재귀식이 실제로 다른 λ 로 다른 결과를 낸다
+
+    실제 저장 없이 상수 · 함수 단위로 검증. DB 접근 없음.
+    """
+
+    def test_lambda_mapping_has_expected_metrics(self):
+        """FR-31: a3=0.1, seg_crack=0.2 두 값 각각 존재."""
+        assert spc_service.EWMA_LAMBDAS["a3"] == 0.1
+        assert spc_service.EWMA_LAMBDAS["seg_crack"] == 0.2
+        # 두 값이 다름 → metric 별 분리가 실제로 의미 있음
+        assert spc_service.EWMA_LAMBDAS["a3"] != spc_service.EWMA_LAMBDAS["seg_crack"]
+
+    def test_valid_metrics_derived_from_lambda_mapping(self):
+        """FR-31: VALID_METRICS 와 EWMA_LAMBDAS 키 일치 (매핑에서 파생).
+        신규 metric 추가 시 λ 누락 방지 방식의 회귀 방지."""
+        assert set(spc_service.VALID_METRICS) == set(spc_service.EWMA_LAMBDAS.keys())
+
+    def test_get_summary_returns_metric_specific_lambda(self, inspector_user):
+        """get_summary 반환값이 metric 별로 다른 λ 를 반환."""
+        summary_a3 = spc_service.get_summary("a3")
+        summary_seg = spc_service.get_summary("seg_crack")
+        assert summary_a3["ewma_lambda"] == spc_service.EWMA_LAMBDAS["a3"]
+        assert summary_seg["ewma_lambda"] == spc_service.EWMA_LAMBDAS["seg_crack"]
+        assert summary_a3["ewma_lambda"] != summary_seg["ewma_lambda"]
+
+    def test_unknown_metric_fails_loudly_not_silently(self, inspector_user):
+        """FR-31: 매핑에 없는 metric 은 조용히 기본값 대신 명확히 실패."""
+        # add_spc_point 는 VALID_METRICS 검사에서 ValueError
+        with pytest.raises(ValueError, match="invalid metric"):
+            spc_service.add_spc_point(999, "unknown_metric", 0.1)
+        # get_summary 도 동일
+        with pytest.raises(ValueError, match="invalid metric"):
+            spc_service.get_summary("unknown_metric")
+        # dict.get 이 아니라 직접 접근이라 fallback 기본값 사용 없음
+        # (매핑 없는 metric 이 VALID_METRICS 통과했다고 가정해도
+        #  EWMA_LAMBDAS[metric] 에서 KeyError 로 실패해야 함)
+        with pytest.raises(KeyError):
+            _ = spc_service.EWMA_LAMBDAS["unknown_metric"]
+
+    def test_next_ewma_produces_different_output_for_different_lambdas(self):
+        """_next_ewma 재귀식이 실제로 다른 λ 로 다른 값. metric 별 λ 분리가
+        저장되는 EWMA 값에 반영됨을 순수 계산으로 확인."""
+        prev = 0.1
+        value = 0.5
+        e_a3 = spc_service._next_ewma(value, spc_service.EWMA_LAMBDAS["a3"], prev)
+        e_seg = spc_service._next_ewma(value, spc_service.EWMA_LAMBDAS["seg_crack"], prev)
+        assert e_a3 != e_seg
+        # λ 클수록 최신 값 비중 커짐 → seg (λ=0.2) 가 a3 (λ=0.1) 보다 value(0.5) 에 가깝게
+        assert abs(e_seg - value) < abs(e_a3 - value)
 
 
 class TestAlarmTransition:
