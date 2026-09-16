@@ -405,6 +405,27 @@ grep -c "^|C-" docs/requirements.md
 
 ---
 
+## 6-5. kpi_headline.json 필드 출처
+
+웹앱 대시보드 헤더 카드에 노출되는 4개 헤드라인 지표. **수작업 캡처 파일**로 생성 스크립트 없음 (파일 서두 `note`: "여기에 캡처해 둔다"). 값이 바뀌면 저장소의 `kpi_headline.json` 을 직접 수정하고 커밋해야 한다.
+
+**[문서]** — 값은 실험 결과 스냅샷. 재측정은 각 원 실험 스크립트로.
+
+| 필드 | 값 | 원 실험 | 재측정 근거 파일 |
+|---|---|---|---|
+| `pinhole_map50` | 0.978 ± 0.009 (val, seed 4회 평균) · test 0.975 ± 0.023 (N=38) | `experiment_log.md` §19-2, §19-3 · 프레임 단위 stratify (§19-1) | `runs/pinhole_frames_seed{0..3}/results.csv` |
+| `semantic_crack_iou` | 0.7431 ± 0.0021 (val) · test_in 0.7719 · test_out 0.5455 · CPU 추론 450.28 ms/patch | `experiment_log.md` §20-2 · §21-1 · U-Net + ResNet34 (imagenet) | `runs/semantic/seed{0..3}/test_results.txt` |
+| `a3_speed_ms_per_cell` | 0.11 ms/cell (cell = 64×64, patch당 70 cell → 약 7.7 ms/patch) | `06_benchmark_anomaly.py:504` stdout. §17-1 단위 정정 (`ms/patch` → `ms/cell`) 이후 필드명 개명 (§17-2) | `06_benchmark_anomaly.py` 실행 로그 |
+| `a3_vs_mask_spearman` | 0.8652 (pooled Spearman, N=2,227, target=area_or) | `experiment_log.md` §15-7 · stem 조인 재실행판 (§15-4) | `results_mask_area.csv`, `22_mask_validation.py` |
+
+**폐기값 병기 (파일 내 `deprecated_value`)**: `pinhole_map50.deprecated_value = 0.924` — patch 무작위 분할 val 값. §18-12 프레임 82% train 공유 확인 후 폐기. 카드 노출 안 함
+
+**INCAPABLE 카운트 미노출** (파일 note): `advisor_report.json` 에서 자동 계산되지만 규격 상한 0.25 가 임의값이라 headline KPI 로 부적합
+
+**필드 개명 이력** (§17-2): `a3_speed_ms_per_patch` → `a3_speed_ms_per_cell` (2026-09-12, 단위 오표기 정정)
+
+---
+
 ## 7. 폐기된 수치 (인용 금지)
 
 값 인용 시 반드시 폐기 사실을 함께 표기해야 하는 항목. 재인용 방지 목적.

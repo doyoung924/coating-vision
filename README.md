@@ -644,7 +644,7 @@ python run.py                         # http://localhost:5000
 5. report 없이 시도하면 flash-error 로 거부
 
 **데이터 소스** (레이어 5 대시보드가 재사용):
-- 정적 산출물: `advisor_report.json` · `defect_map.json` · `results_benchmark.csv` · `results_robustness.csv` · `figures/spc_*.png` · `kpi_headline.json`
+- 정적 산출물: `advisor_report.json` · `defect_map.json` · `results_benchmark.csv` · `results_robustness.csv` · `figures/spc_*.png` · `kpi_headline.json` (수작업 캡처. 4개 필드 각각의 출처는 파일 내 `source` 필드 및 `docs/metrics.md` §6-5 참조)
 - 모델 가중치: `runs/pinhole_v1/weights/best.pt` · `runs/semantic/seed0/best.pt`
 - 스트림 캐시: `detections_cache.json` + `stream_data/*.json` (17_precompute_detections.py 산출)
 - 이미지 원본: `segmentation/images/image_*.jpg` (2,227장)
