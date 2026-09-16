@@ -122,7 +122,8 @@ END;
 CREATE TABLE SPC_POINTS (
   ID              NUMBER PRIMARY KEY,
   INSPECTION_ID   NUMBER NOT NULL,
-  METRIC          VARCHAR2(20) CHECK (METRIC IN ('a3','seg_crack')),
+  METRIC          VARCHAR2(20),
+  CONSTRAINT CHK_SPC_METRIC CHECK (METRIC IN ('a3','seg_crack','pinhole_count')),
   SEQ_NO          NUMBER(7),
   VALUE           NUMBER(10,6),
   EWMA            NUMBER(10,6),

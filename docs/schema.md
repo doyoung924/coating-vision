@@ -81,7 +81,7 @@ POSTS(1) ─────< (N)COMMENTS           ON DELETE CASCADE
 |---|---|---|---|---|
 | ID | NUMBER | N | (SEQ_SPC_POINTS + TRG) | PK. |
 | INSPECTION_ID | NUMBER | N | | FK → INSPECTIONS **ON DELETE CASCADE**. |
-| METRIC | VARCHAR2(20) | Y | | CHECK IN ('a3','seg_crack'). |
+| METRIC | VARCHAR2(20) | Y | | 제약 `CHK_SPC_METRIC` CHECK IN ('a3','seg_crack','pinhole_count'). 연속형 = a3·seg_crack, 계수형 = pinhole_count (FR-57). |
 | SEQ_NO | NUMBER(7) | Y | | metric 내 순번. 인덱스 (METRIC, SEQ_NO). |
 | VALUE | NUMBER(10,6) | Y | | 원값. |
 | EWMA | NUMBER(10,6) | Y | | metric 별 λ 로 계산한 EWMA (a3=0.1, seg_crack=0.2. FR-31). baseline 30점까지는 NULL. |
@@ -96,8 +96,8 @@ METRIC 컬럼은 **앱 계층 (`app/services/spc.py:EWMA_LAMBDAS`)** 과 **DB CH
 **수정 대상**:
 
 1. **`app/services/spc.py:EWMA_LAMBDAS`** — 새 metric 과 λ 값을 dict 에 추가. `VALID_METRICS` 는 `EWMA_LAMBDAS.keys()` 에서 파생되므로 자동 반영
-2. **`sql/schema.sql:125`** `SPC_POINTS.METRIC CHECK (METRIC IN ('a3','seg_crack'))` — 새 metric 값을 CHECK 목록에 추가
-3. **기존 DB 마이그레이션 (`sql/migrate_3_X.py` 신규)** — 이미 DB 를 초기화한 환경에서는 스키마 파일 수정만으로는 반영되지 않음. `ALTER TABLE SPC_POINTS DROP CONSTRAINT <이름>` 후 `ALTER TABLE ... ADD CONSTRAINT ... CHECK (METRIC IN (...))` 실행
+2. **`sql/schema.sql`** `SPC_POINTS` 의 `CONSTRAINT CHK_SPC_METRIC CHECK (METRIC IN (...))` 목록에 새 값 추가 (신규 설치용)
+3. **기존 DB 마이그레이션 (`sql/migrate_3_X.py` 신규)** — 이미 DB 를 초기화한 환경에서는 스키마 파일 수정만으로는 반영되지 않음. `USER_CONSTRAINTS` 에서 `SEARCH_CONDITION` 으로 현재 METRIC CHECK 이름을 찾아 `ALTER TABLE SPC_POINTS DROP CONSTRAINT <이름>` 후 명시 이름 `CHK_SPC_METRIC` 로 재생성 (§3-6 이전 환경은 익명 SYS_C0XXXX). 롤백 스크립트는 CHK_SPC_METRIC 을 DROP 후 이전 CHECK 복원. 새 metric 데이터가 이미 저장된 상태에서 롤백하면 CHECK 위반
 
 **배포 순서**: DB 마이그레이션을 먼저 실행 (스키마가 새 metric 을 허용하도록) → 그 다음 앱 배포 (새 EWMA_LAMBDAS 반영). 반대 순서로 하면 새 앱이 부팅해서 새 metric 값을 저장하려 할 때 DB CHECK 위반.
 
