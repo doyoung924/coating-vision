@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}인라인 스트림 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+{% if not index_ready %}
+<div class="err-box">
+    <strong>스트림 캐시 없음</strong>
+    <div>{{ index_error }}</div>
+</div>
+{% else %}
+
+<section class="stream-controls">
+    <div class="control-group">
+        <label for="seqSelect" class="control-label">시퀀스</label>
+        <select id="seqSelect" class="control-select"
+                title="시퀀스 옆의 GOOD/MARGINAL/INCAPABLE 은 임의 임계 0.25 (10_spc_tuning.py:46) 기반 시연 결과다. 실제 라인 규격에서 도출된 판정이 아니다.">
+            {% for seq in sequences %}
+            <option value="{{ seq.sequence_id }}" data-capability="{{ seq.capability }}"
+                    data-nframes="{{ seq.n_frames }}" data-center="{{ seq.center }}"
+                    data-ucl="{{ seq.ucl }}"
+                    {% if seq.sequence_id == initial_seq %}selected{% endif %}>
+                {{ seq.label }} · {{ seq.capability }} · {{ seq.n_frames }}f · UCL {{ '%.3f' % seq.ucl }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="control-group">
+        <button id="btnPlay" type="button" class="btn-primary">▶ 재생</button>
+        <button id="btnPause" type="button" class="btn-secondary" disabled>⏸ 정지</button>
+        <button id="btnReset" type="button" class="btn-secondary">⟲ 처음</button>
+    </div>
+
+    <div class="control-group">
+        <span class="control-label">속도</span>
+        <div class="speed-buttons" id="speedButtons">
+            <button type="button" data-speed="0.5">0.5×</button>
+            <button type="button" data-speed="1" class="active">1×</button>
+            <button type="button" data-speed="2">2×</button>
+            <button type="button" data-speed="max">최대</button>
+        </div>
+    </div>
+
+    <div class="control-group control-slider">
+        <label for="frameSlider" class="control-label">프레임</label>
+        <input type="range" id="frameSlider" class="frame-slider" min="0" max="0" value="0">
+        <span id="frameCounter" class="frame-counter">0 / 0</span>
+    </div>
+</section>
+
+<section class="stream-body">
+
+    <div class="stream-left">
+        <div id="frameFrame" class="frame-frame">
+            <img id="frameImage" class="frame-image" src="" alt="현재 프레임">
+            <div id="overlay" class="frame-overlay"></div>
+            <div id="alertBanner" class="alert-banner hidden">ALERT</div>
+        </div>
+        <div id="framePreload" class="frame-preload"></div>
+    </div>
+
+    <div class="stream-right">
+        <div class="status-card">
+            <div class="status-heading">
+                검출 상세 · top-1 (128px 크롭 · 4× 확대)
+                <span id="cropStatus" class="crop-status"></span>
+            </div>
+            <div class="crop-frame">
+                <canvas id="cropCanvas" width="512" height="512"></canvas>
+                <div id="cropNote" class="crop-note">검출 없음</div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <div class="status-heading">현재 프레임</div>
+            <table class="status-table">
+                <tbody>
+                    <tr><th>frame</th><td id="statFrame">—</td></tr>
+                    <tr><th>image</th><td id="statImage" class="mono">—</td></tr>
+                    <tr><th>defect_ratio</th><td id="statDefectRatio">—</td></tr>
+                    <tr><th>ewma</th><td id="statEwma">—</td></tr>
+                    <tr><th>UCL</th><td id="statUcl">—</td></tr>
+                    <tr><th>center</th><td id="statCenter">—</td></tr>
+                    <tr><th>검출 박스</th><td id="statBoxCount">—</td></tr>
+                    <tr><th>정답 라벨 (GT)</th><td id="statLabels">—</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="status-card">
+            <div class="status-heading">시퀀스 상태</div>
+            <table class="status-table">
+                <tbody>
+                    <tr><th title="10_spc_tuning.py:46 CAPABILITY_THRESHOLD = 0.25 (임의값, experiment_log.md §9-4). 실제 라인 규격이 아님.">capability<sup>*</sup></th><td id="statCapability"><span class="cap-badge">—</span></td></tr>
+                    <tr><th>누적 알람</th><td id="statAlertCount">0</td></tr>
+                    <tr><th>현재 판정</th><td id="statVerdict">대기</td></tr>
+                </tbody>
+            </table>
+            <div class="method-note">
+                본 시스템의 검출 대상은 <strong>핀홀 단일 클래스</strong>다. 크랙은 면적 비율(defect_ratio)로,
+                박리는 데이터 부족으로 검출 대상에서 제외했다.
+            </div>
+        </div>
+    </div>
+
+</section>
+
+<section class="stream-chart">
+    <div class="chart-header">
+        <div class="panel-role panel-role-live">실시간 재생 · 현재 프레임까지 누적</div>
+        <div>실시간 관리도 · defect_ratio(파랑) · EWMA(초록) · UCL(빨강) · 알람(●)</div>
+    </div>
+    <div class="chart-wrapper">
+        <canvas id="controlChart"></canvas>
+        <div id="chartNoteIncapable" class="chart-note-incapable hidden">
+            <div class="chart-note-title">UCL <span id="chartNoteUcl">0.000</span></div>
+            관리한계가 y축 상한에 근접. 정상 상태 자체가 불량 수준이라
+            이탈 판정이 거의 발생하지 않는다.
+            <div class="chart-note-caveat">
+                판정 자체는 임의 임계 0.25 (10_spc_tuning.py:46) 기반 — 절대 수치가 아닌 상대 순위로만 해석.
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="stream-advisor">
+    <div class="chart-header">Advisor 알림 로그</div>
+    <ul id="advisorLog" class="advisor-log">
+        <li class="advisor-log-empty">아직 알람 없음</li>
+    </ul>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/stream.js') }}"></script>
+
+{% endif %}
+
+{% endblock %}

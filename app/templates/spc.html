@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}SPC 누적 관리도 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">SPC 누적 관리도</h1>
+    <p class="page-desc">
+        전체 검사 결과를 한 시계열로 누적. metric 은 A3 이상 비율 또는 세그 crack 면적비.
+        baseline {{ 30 }}점까지 수집 (관리한계 계산 안 함) → 이후 CENTER + 3.5σ 를 UCL 로 판정.
+        EWMA λ=0.1 (§10 튜닝 권장값, 사용자 지시대로 09 원본 계수 대신 사용).
+    </p>
+    <p class="page-desc">
+        <a href="{{ url_for('spc.spc_page', metric='a3') }}"
+           class="metric-tab {% if metric == 'a3' %}metric-tab-active{% endif %}">A3 이상 비율</a>
+        <a href="{{ url_for('spc.spc_page', metric='seg_crack') }}"
+           class="metric-tab {% if metric == 'seg_crack' %}metric-tab-active{% endif %}">세그 crack 면적비</a>
+    </p>
+</section>
+
+{% if error_message %}
+<div class="err-box">
+    <strong>SPC 조회 실패</strong>
+    <div>{{ error_message }}</div>
+</div>
+{% endif %}
+
+{% if summary %}
+<section class="user-summary">
+    <div class="user-summary-heading">
+        <span>metric = <code>{{ metric }}</code></span>
+        <span class="user-summary-more">
+            baseline {{ summary.baseline_size }} · UCL = CENTER + {{ summary.sigma_limit }}σ · EWMA λ={{ summary.ewma_lambda }}
+        </span>
+    </div>
+    <div class="user-summary-grid">
+        <div class="mini-card">
+            <div class="mini-label">총 점 수</div>
+            <div class="mini-value">{{ summary.total_points }}</div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">baseline</div>
+            <div class="mini-value">
+                {% if summary.baseline_complete %}완료{% else %}수집 중 ({{ summary.total_points }}/{{ summary.baseline_size }}){% endif %}
+            </div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">CENTER / UCL</div>
+            <div class="mini-value" style="font-size:14px">
+                {% if summary.center is not none %}
+                {{ '%.4f' % summary.center }} / {{ '%.4f' % summary.ucl }}
+                {% else %}—{% endif %}
+            </div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">알람 총계</div>
+            <div class="mini-value">{{ summary.alarm_count }}</div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="history-detail-block">
+    <div class="block-heading">누적 관리도</div>
+    <canvas id="spcChart" height="120"></canvas>
+    <p class="page-desc" style="margin-top:8px">
+        회색 음영 = baseline 구간 · 실선 = CENTER · 점선 = UCL · 파란선 = 원값 · 주황선 = EWMA · 붉은 점 = 알람.
+    </p>
+</section>
+
+<section class="history-detail-block">
+    <div class="block-heading">최근 알람 ({{ recent_alarms|length }}건)</div>
+    {% if recent_alarms|length == 0 %}
+    <p class="empty-note">알람 없음.</p>
+    {% else %}
+    <table class="bm-table">
+        <thead>
+            <tr>
+                <th>seq_no</th>
+                <th>검사 ID</th>
+                <th>일시</th>
+                <th>검사자</th>
+                <th class="tnum">value</th>
+                <th class="tnum">EWMA</th>
+                <th class="tnum">UCL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in recent_alarms %}
+            <tr>
+                <td>{{ a.seq_no }}</td>
+                <td><a href="{{ url_for('history.history_detail', inspection_id=a.inspection_id) }}">#{{ a.inspection_id }}</a></td>
+                <td>{{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') if a.created_at else '' }}</td>
+                <td>{{ a.username or '—' }}</td>
+                <td class="tnum">{{ '%.4f' % a.value }}</td>
+                <td class="tnum">{% if a.ewma is not none %}{{ '%.4f' % a.ewma }}{% else %}—{% endif %}</td>
+                <td class="tnum">{% if a.ucl is not none %}{{ '%.4f' % a.ucl }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    window.SPC_CONFIG = {
+        metric: "{{ metric }}",
+        apiUrl: "{{ url_for('api_spc.spc_series', metric=metric, limit=500) }}",
+        baselineSize: {{ summary.baseline_size if summary else 30 }}
+    };
+</script>
+<script src="{{ url_for('static', filename='js/spc.js') }}"></script>
+
+{% endblock %}

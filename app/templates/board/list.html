@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "_pagination.html" as pager %}
+{% block title %}게시판 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">게시판</h1>
+    <p class="page-desc">
+        카테고리별로 필터. 공지사항 (notice) 은 목록 상단에 고정된다.
+        리포트 (report) 는 검사 건에 연결된 이상 리포트다.
+    </p>
+    <p class="page-desc">
+        {% for c in valid_categories %}
+        <a href="{{ url_for('board.board_list', category=c) }}"
+           class="metric-tab {% if category == c %}metric-tab-active{% endif %}">{{ c }}</a>
+        {% endfor %}
+        <a href="{{ url_for('board.board_new') }}" class="filter-submit" style="margin-left:12px">글쓰기</a>
+    </p>
+</section>
+
+{% if error_message %}
+<div class="err-box">
+    <strong>게시판 조회 실패</strong>
+    <div>{{ error_message }}</div>
+</div>
+{% endif %}
+
+<section class="history-filters">
+    <div class="history-count">총 {{ total_count }}건 · category = <code>{{ category }}</code></div>
+</section>
+
+<section class="history-table-wrap">
+    {% if rows|length == 0 %}
+    <p class="empty-note">글이 없다.</p>
+    {% else %}
+    <table class="bm-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>카테고리</th>
+                <th>제목</th>
+                <th>작성자</th>
+                <th>검사</th>
+                <th class="tnum">조회</th>
+                <th>작성일</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>
+                    <span class="cap-badge cap-{% if row.category == 'notice' %}alarm{% elif row.category == 'report' %}reviewed{% else %}normal{% endif %}">
+                        {{ row.category }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{{ url_for('board.board_detail', post_id=row.id) }}">{{ row.title }}</a>
+                </td>
+                <td>{{ row.username or '—' }}</td>
+                <td>
+                    {% if row.inspection_id %}
+                    <a href="{{ url_for('history.history_detail', inspection_id=row.inspection_id) }}">#{{ row.inspection_id }}</a>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="tnum">{{ row.view_count }}</td>
+                <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+{{ pager.render(page, total_pages, 'board.board_list',
+                extra_args={'category': category, 'per_page': page_size},
+                total_count=total_count, page_size=page_size,
+                allowed_page_sizes=allowed_page_sizes) }}
+
+{% endblock %}

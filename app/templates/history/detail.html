@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}검사 #{{ detail.id }} · 이력 상세{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">검사 #{{ detail.id }}</h1>
+    <p class="page-desc">
+        {{ detail.created_at.strftime('%Y-%m-%d %H:%M:%S') if detail.created_at else '' }} ·
+        소유자 <strong>{{ detail.owner_username or '알 수 없음' }}</strong> ·
+        source <code>{{ detail.source or '' }}</code> ·
+        상태 <span class="cap-badge cap-{{ detail.status }}">{{ detail.status }}</span>
+    </p>
+    <p class="page-desc">
+        <a href="{{ url_for('history.history_list') }}">← 목록으로</a>
+    </p>
+</section>
+
+<section class="history-detail-summary">
+    <div class="kpi-row" style="grid-template-columns: repeat(5, 1fr);">
+        <div class="kpi-card">
+            <div class="kpi-label">A3 이상 비율</div>
+            <div class="kpi-value">
+                {% if detail.a3_ratio is not none %}{{ '%.4f' % detail.a3_ratio }}{% else %}—{% endif %}
+            </div>
+            <div class="kpi-sub">이상 cell {{ detail.a3_cells if detail.a3_cells is not none else '—' }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">세그 crack</div>
+            <div class="kpi-value">
+                {% if detail.seg_crack is not none %}{{ '%.4f' % detail.seg_crack }}{% else %}—{% endif %}
+            </div>
+            <div class="kpi-sub">픽셀 면적비</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">세그 delam</div>
+            <div class="kpi-value">
+                {% if detail.seg_delam is not none %}{{ '%.4f' % detail.seg_delam }}{% else %}—{% endif %}
+            </div>
+            <div class="kpi-sub">§20-5 참고값</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">핀홀 검출</div>
+            <div class="kpi-value">{{ detail.pinhole_count if detail.pinhole_count is not none else '—' }}</div>
+            <div class="kpi-sub">YOLO conf ≥ 0.25</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">처리 시간</div>
+            <div class="kpi-value">
+                {% if detail.ms_total is not none %}{{ '%.1f' % detail.ms_total }} <span class="kpi-unit">ms</span>{% else %}—{% endif %}
+            </div>
+            <div class="kpi-sub">
+                A3 {% if detail.ms_a3 is not none %}{{ '%.1f' % detail.ms_a3 }}{% else %}—{% endif %} ·
+                YOLO {% if detail.ms_yolo is not none %}{{ '%.1f' % detail.ms_yolo }}{% else %}—{% endif %} ·
+                seg {% if detail.ms_seg is not none %}{{ '%.1f' % detail.ms_seg }}{% else %}—{% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="history-detail-image">
+    <div class="block-heading">저장 이미지 4장</div>
+    {% set _keys = [
+        ("원본", detail.image_path),
+        ("YOLO 오버레이", detail.annotated_path),
+        ("A3 히트맵", detail.heatmap_path),
+        ("세그 오버레이", detail.seg_path)
+    ] %}
+    <div class="inspect-images">
+        {% for caption, fname in _keys %}
+        <figure class="inspect-figure">
+            <figcaption>{{ caption }}</figcaption>
+            {% if fname %}
+            <img src="{{ url_for('static', filename='uploads/' + fname) }}"
+                 alt="{{ caption }}"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="empty-note" style="display:none">이미지 파일 없음 (uploads/{{ fname }})</div>
+            {% else %}
+            <div class="empty-note">이미지 없음</div>
+            {% endif %}
+        </figure>
+        {% endfor %}
+    </div>
+    {% if detail.is_cold_start %}
+    <p class="page-desc" style="margin-top:8px; color:var(--warn)">
+        ⚠ 이 검사는 콜드 스타트 (모델 로드 포함). MS_YOLO / MS_SEG 는 실제 추론 시간이 아니라
+        로드 시간까지 포함한 값이다. 통계 집계에서 자동 제외됨.
+    </p>
+    {% endif %}
+</section>
+
+<section class="history-detail-block">
+    <div class="block-heading">검출 목록 ({{ detail.detections|length }}건)</div>
+    {% if detail.detections|length == 0 %}
+    <p class="empty-note">검출 없음.</p>
+    {% else %}
+    <table class="bm-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th class="tnum">x1,y1</th>
+                <th class="tnum">x2,y2</th>
+                <th class="tnum">conf</th>
+                <th class="tnum">aspect</th>
+                <th class="tnum">roundness</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for det in detail.detections %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td class="tnum">{{ '%.0f' % det.x1 }}, {{ '%.0f' % det.y1 }}</td>
+                <td class="tnum">{{ '%.0f' % det.x2 }}, {{ '%.0f' % det.y2 }}</td>
+                <td class="tnum">{{ '%.3f' % det.conf }}</td>
+                <td class="tnum">{{ '%.2f' % det.aspect }}</td>
+                <td class="tnum">{% if det.roundness is not none %}{{ '%.3f' % det.roundness }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+<section class="history-detail-block">
+    <div class="block-heading">Advisor 3층 리포트</div>
+
+    <div class="advisor-block">
+        <div class="block-heading">① 관측</div>
+        {% if detail.findings_by_layer.observation|length == 0 %}
+        <p class="empty-note">관측 기록 없음.</p>
+        {% else %}
+        <ul class="obs-list">
+            {% for f in detail.findings_by_layer.observation %}
+            <li>{{ f.content }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <div class="advisor-block">
+        <div class="block-heading">② 해석</div>
+        {% if detail.findings_by_layer.interpretation|length == 0 %}
+        <p class="empty-note">해석 없음.</p>
+        {% else %}
+        <ul class="interp-list">
+            {% for f in detail.findings_by_layer.interpretation %}
+            <li class="interp-item">
+                <span class="conf-badge conf-{{ f.confidence }}">{{ f.confidence or 'n/a' }}</span>
+                <span class="interp-msg">{{ f.content }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <div class="advisor-block">
+        <div class="block-heading">③ 참조</div>
+        {% if detail.findings_by_layer.reference|length == 0 %}
+        <p class="empty-note">참조 없음.</p>
+        {% else %}
+        <ul class="ref-list">
+            {% for f in detail.findings_by_layer.reference %}
+            <li>
+                <div class="ref-topic">{{ f.source or '' }}</div>
+                <pre class="ref-content">{{ f.content }}</pre>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</section>
+
+{% set is_owner = (current_user and detail.user_id == current_user.id) %}
+{% set is_admin = (current_user and current_user.role == 'admin') %}
+{% set is_manager_plus = (current_user and current_user.role in ('manager', 'admin')) %}
+
+{% if detail.status == 'reviewed' and detail.reviewer_username %}
+<section class="history-detail-block">
+    <div class="block-heading">조치 완료 정보</div>
+    <p>
+        <strong>{{ detail.reviewer_username }}</strong> 이(가)
+        {{ detail.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if detail.reviewed_at else '—' }} 에 조치 완료 처리함.
+    </p>
+</section>
+{% endif %}
+
+<section class="history-detail-actions">
+    <a href="{{ url_for('board.board_new', inspection_id=detail.id, category='report') }}" class="filter-submit">
+        이 검사로 리포트 작성
+    </a>
+
+    {% if detail.status == 'alarm' and is_manager_plus %}
+    <form method="POST" action="{{ url_for('history.history_review', inspection_id=detail.id) }}"
+          onsubmit="return confirm('검사 #{{ detail.id }} 를 reviewed 상태로 전이합니다. 연결된 리포트가 없으면 거부됩니다.');"
+          style="display:inline-block; margin-left:8px">
+        <button type="submit" class="filter-submit" style="background: var(--cap-good); border:none">
+            조치 완료 처리 (→ reviewed)
+        </button>
+    </form>
+    {% endif %}
+
+    {% if is_owner or is_admin %}
+    <form method="POST" action="{{ url_for('history.history_delete', inspection_id=detail.id) }}"
+          onsubmit="return confirm('검사 #{{ detail.id }} 를 삭제합니다. 되돌릴 수 없다. 계속?');"
+          style="display:inline-block; margin-left:8px">
+        <button type="submit" class="danger-btn">이 검사 삭제</button>
+    </form>
+    {% endif %}
+</section>
+
+{% endblock %}

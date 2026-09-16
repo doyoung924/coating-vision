@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}500 · 서버 오류{% endblock %}
+{% block content %}
+
+<section class="auth-page">
+    <div class="auth-card" style="max-width:520px">
+        <h2 class="auth-title">500 · 서버 오류가 발생했습니다</h2>
+        <p class="auth-subtitle">
+            요청을 처리하는 중 예기치 못한 오류가 발생했습니다.
+            잠시 후 다시 시도하거나 관리자에게 문의하세요.
+        </p>
+        <p class="page-desc">
+            상세 오류 정보는 서버 로그에 기록되었습니다.
+        </p>
+        <p class="auth-link">
+            <a href="{{ url_for('main.index') }}">시퀀스 개요로 돌아가기</a>
+        </p>
+    </div>
+</section>
+
+{% endblock %}

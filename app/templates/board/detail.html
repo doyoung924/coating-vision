@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} · 게시판{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <p class="page-desc"><a href="{{ url_for('board.board_list', category=post.category) }}">← 목록으로 ({{ post.category }})</a></p>
+    <h1 class="page-title">{{ post.title }}</h1>
+    <p class="page-desc">
+        <span class="cap-badge cap-{% if post.category == 'notice' %}alarm{% elif post.category == 'report' %}reviewed{% else %}normal{% endif %}">
+            {{ post.category }}
+        </span>
+        · {{ post.username or '—' }}
+        · 조회 {{ post.view_count }}
+        · {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') if post.created_at else '' }}
+        {% if post.updated_at %}
+        (수정 {{ post.updated_at.strftime('%Y-%m-%d %H:%M') }})
+        {% endif %}
+    </p>
+</section>
+
+{% if post.inspection %}
+<section class="history-detail-block">
+    <div class="block-heading">연결된 검사</div>
+    <p>
+        <a href="{{ url_for('history.history_detail', inspection_id=post.inspection.id) }}">검사 #{{ post.inspection.id }}</a>
+        · 파일 <code>{{ post.inspection.file_name or '—' }}</code>
+        · 상태 <span class="cap-badge cap-{{ post.inspection.status }}">{{ post.inspection.status }}</span>
+        · A3 {% if post.inspection.a3_ratio is not none %}{{ '%.4f' % post.inspection.a3_ratio }}{% else %}—{% endif %}
+        · crack {% if post.inspection.seg_crack is not none %}{{ '%.4f' % post.inspection.seg_crack }}{% else %}—{% endif %}
+        · 핀홀 {{ post.inspection.pinhole_count if post.inspection.pinhole_count is not none else '—' }}
+        · {{ post.inspection.created_at.strftime('%Y-%m-%d %H:%M') if post.inspection.created_at else '' }}
+    </p>
+</section>
+{% endif %}
+
+<section class="history-detail-block">
+    <div class="block-heading">본문</div>
+    <div class="board-content">{{ post.content | nl2br }}</div>
+</section>
+
+{% if can_edit %}
+<section class="history-detail-actions">
+    <a href="{{ url_for('board.board_edit', post_id=post.id) }}" class="filter-submit">수정</a>
+    <form method="POST" action="{{ url_for('board.board_delete', post_id=post.id) }}"
+          onsubmit="return confirm('글을 삭제합니다. 되돌릴 수 없습니다.');"
+          style="display:inline-block; margin-left:8px">
+        <button type="submit" class="danger-btn">삭제</button>
+    </form>
+</section>
+{% endif %}
+
+<section class="history-detail-block">
+    <div class="block-heading">댓글 ({{ post.comments|length }})</div>
+    {% if post.comments|length == 0 %}
+    <p class="empty-note">댓글 없음.</p>
+    {% else %}
+    <ul class="comment-list">
+        {% for comment in post.comments %}
+        <li class="comment-item">
+            <div class="comment-head">
+                <strong>{{ comment.username or '—' }}</strong>
+                <span class="comment-time">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') if comment.created_at else '' }}</span>
+                {% set can_delete_comment = (comment.user_id == current_user.id) or (current_user.role == 'admin') %}
+                {% if can_delete_comment %}
+                <form method="POST" action="{{ url_for('board.comment_delete', comment_id=comment.id) }}"
+                      onsubmit="return confirm('댓글을 삭제합니다.');" style="display:inline">
+                    <button type="submit" class="comment-delete-btn">삭제</button>
+                </form>
+                {% endif %}
+            </div>
+            <div class="comment-body">{{ comment.content | nl2br }}</div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('board.board_comment_new', post_id=post.id) }}" class="comment-form">
+        <textarea name="content" required maxlength="1000" placeholder="댓글 (1000자 이하)"></textarea>
+        <button type="submit" class="filter-submit">댓글 작성</button>
+    </form>
+</section>
+
+{% endblock %}

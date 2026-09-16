@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}저장소 관리 · 계정 관리 (§3-8){% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">저장소 관리 (admin 전용)</h1>
+    <p class="page-desc">
+        <code>app/static/uploads/</code> 안의 검사 이미지를 관리한다.
+        보존 기간 기본 <strong>{{ retention_days }}일</strong>
+        (<code>.env</code> 의 <code>UPLOAD_RETENTION_DAYS</code> 로 조정).
+    </p>
+    <p class="page-desc">
+        <a href="{{ url_for('admin.users_list') }}">← 계정 관리로</a>
+    </p>
+</section>
+
+{% if error_message %}
+<div class="err-box"><strong>조회 실패</strong><div>{{ error_message }}</div></div>
+{% endif %}
+
+<section class="user-summary">
+    <div class="user-summary-heading">
+        <span>uploads/ 현황</span>
+    </div>
+    <div class="user-summary-grid">
+        <div class="mini-card">
+            <div class="mini-label">파일 수</div>
+            <div class="mini-value">{{ status.file_count }}</div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">총 용량</div>
+            <div class="mini-value">
+                {{ '%.2f' % (status.total_bytes / 1024 / 1024) }} <span class="kpi-unit">MB</span>
+            </div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">DB 참조 basename</div>
+            <div class="mini-value">{{ status.referenced_count }}</div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">고아 파일</div>
+            <div class="mini-value">{{ status.orphan_count }}</div>
+        </div>
+    </div>
+</section>
+
+<section class="history-detail-block">
+    <div class="block-heading">고아 파일 정리</div>
+    <p class="page-desc">
+        DB 참조가 없는 <code>uploads/*.png</code> 를 삭제한다. <code>.gitkeep</code> 은 보호.
+    </p>
+    <form method="POST" action="{{ url_for('admin.storage_cleanup_orphan') }}"
+          onsubmit="return confirm('DB 참조 없는 파일을 삭제합니다. 되돌릴 수 없습니다.');">
+        <button type="submit" class="danger-btn">고아 파일 정리 실행</button>
+    </form>
+</section>
+
+<section class="history-detail-block">
+    <div class="block-heading">보존 기간 정리</div>
+    <p class="page-desc">
+        지정 일수 이전 검사의 이미지 파일을 삭제하고 경로 컬럼을 NULL 로 갱신한다.
+        <strong>DB 행은 남는다</strong> (수치·Advisor 는 유지, 이미지만 삭제).
+    </p>
+    <form method="POST" action="{{ url_for('admin.storage_cleanup_old') }}"
+          onsubmit="return confirm('지정 일수 이전 이미지를 삭제합니다. 되돌릴 수 없습니다.');"
+          class="filter-form">
+        <label class="filter-label">보존 일수
+            <input type="number" name="days" value="{{ retention_days }}" min="1" max="3650">
+        </label>
+        <button type="submit" class="danger-btn">보존 기간 정리 실행</button>
+    </form>
+</section>
+
+<section class="stage-note">
+    CLI 로도 실행 가능:<br>
+    <code>python sql/cleanup.py --orphan</code> ·
+    <code>python sql/cleanup.py --old 30</code>
+</section>
+
+{% endblock %}

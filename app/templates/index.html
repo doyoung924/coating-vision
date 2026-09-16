@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}개요 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+{% if user_summary %}
+<section class="user-summary">
+    <div class="user-summary-heading">
+        <span>내 검사 요약</span>
+        <a href="{{ url_for('history.history_list') }}" class="user-summary-more">전체 이력 →</a>
+    </div>
+    <div class="user-summary-grid">
+        <div class="mini-card">
+            <div class="mini-label">총 검사</div>
+            <div class="mini-value">{{ user_summary.total_count }}</div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">최근 7일</div>
+            <div class="mini-value">{{ user_summary.recent_count }}</div>
+        </div>
+        <div class="mini-card">
+            <div class="mini-label">평균 세그 crack</div>
+            <div class="mini-value">
+                {% if user_summary.avg_crack is not none %}{{ '%.4f' % user_summary.avg_crack }}{% else %}—{% endif %}
+            </div>
+        </div>
+        <div class="mini-card mini-list">
+            <div class="mini-label">최근 5건</div>
+            {% if user_summary.recent_list|length == 0 %}
+            <div class="mini-empty">아직 검사 없음</div>
+            {% else %}
+            <ul class="mini-recent">
+                {% for row in user_summary.recent_list %}
+                <li>
+                    <a href="{{ url_for('history.history_detail', inspection_id=row.id) }}">#{{ row.id }}</a>
+                    <span class="mini-recent-time">{{ row.created_at.strftime('%m-%d %H:%M') if row.created_at else '' }}</span>
+                    <span class="mini-recent-num">
+                        {% if row.seg_crack is not none %}crack {{ '%.3f' % row.seg_crack }}{% endif %}
+                        {% if row.pinhole_count is not none %} · 핀홀 {{ row.pinhole_count }}{% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="kpi-row">
+    <div class="kpi-card"
+         title="프레임 단위 stratify 분할 (§19). test 는 R7/700/middle hold-out (도메인 이전성 대리 지표). 기존 patch 무작위 분할 값 0.924 는 §18-12 에서 val 원본 프레임 82% 가 train 과 공유되어 있음이 확인돼 대체됨.">
+        <div class="kpi-label">핀홀 mAP@0.5 (val)</div>
+        <div class="kpi-value">{{ '%.3f' % headline.map50_value }}</div>
+        <div class="kpi-sub">±{{ '%.3f' % headline.map50_std }} · seeds={{ headline.map50_seeds }} · 프레임 단위<br>test {{ '%.3f' % headline.map50_test }} ±{{ '%.3f' % headline.map50_test_std }} (N={{ headline.map50_test_n }}, R7/700)</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">이상탐지 AUROC</div>
+        <div class="kpi-value">{{ '%.3f' % headline.auroc }}</div>
+        <div class="kpi-sub">A3 std_brightness · drying_defect</div>
+    </div>
+    <div class="kpi-card"
+         title="patch=480×640, cell=64×64. patch 당 70 cell. 06_benchmark_anomaly.py 의 'ms/patch' 는 실제로는 ms/cell 이다 (§16-0 용어 확정, 2026-09-12).">
+        <div class="kpi-label">A3 추론 속도</div>
+        <div class="kpi-value">{{ '%.2f' % headline.speed_ms_per_cell }} <span class="kpi-unit">ms/cell</span></div>
+        <div class="kpi-sub">≈ {{ '%.1f' % headline.speed_ms_per_patch }} ms/patch (70 cell/patch · CPU)</div>
+    </div>
+    <div class="kpi-card"
+         title="세션 재검증(experiment_log.md §15-7)에서 stem 조인 후 산출. 아래 세그 crack IoU (§20) 는 U-Net+ResNet34 프레임 단위 분할 결과. delam 은 §20-5 안정성 한계로 단독 인용 금지.">
+        <div class="kpi-label">A3 vs 실측 면적비 Spearman</div>
+        <div class="kpi-value">{{ '%.3f' % headline.spearman_value }}</div>
+        <div class="kpi-sub">N = {{ headline.spearman_n }} patch · target: {{ headline.spearman_target }}<br>
+            세그 crack IoU val <strong>{{ '%.3f' % headline.seg_crack_val }}</strong> · test_in {{ '%.3f' % headline.seg_crack_test_in }} · test_out {{ '%.3f' % headline.seg_crack_test_out }} (§20)
+        </div>
+    </div>
+</section>
+
+<section class="board">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">시퀀스 목록</div>
+        <div class="sidebar-note"
+             title="10_spc_tuning.py:46 CAPABILITY_THRESHOLD = 0.25. experiment_log.md §9-4 에 '임의값이다. 물리적 근거가 없으며' 로 명시. §15-10 재검증에서 같은 임계를 마스크 면적비 도메인에 적용하자 8 중 7 이 CAPABLE 로 뒤집혔다.">
+            판정 배지 GOOD/MARGINAL/INCAPABLE 은 임의 임계 0.25 기반 시연 결과 (INCAPABLE {{ headline.incapable }} / {{ headline.total_sequences }}).
+            실제 라인에서는 제품 품질 규격에서 규격 상한이 도출되어야 함.
+        </div>
+        <ul class="sequence-list">
+            {% for entry in sidebar %}
+            <li>
+                <a href="?seq={{ entry.index }}"
+                   class="seq-item {% if entry.selected %}seq-item-selected{% endif %}">
+                    <div class="seq-item-label">{{ entry.label }}</div>
+                    <div class="seq-item-meta">
+                        <span class="cap-badge cap-{{ entry.capability }}"
+                              title="임의 임계 0.25 기반 판정 (근거 부재). 절대 수치가 아닌 상대 순위로만 해석.">{{ entry.capability }}</span>
+                        <span class="seq-meta-num">center {{ '%.3f' % entry.center }}</span>
+                        <span class="seq-meta-num">UCL {{ '%.3f' % entry.ucl }}</span>
+                        <span class="seq-meta-num">alerts {{ entry.alerts }}</span>
+                    </div>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </aside>
+
+    <section class="center">
+        <div class="center-header">
+            <div>
+                <span class="center-title">SPC 관리도 · {{ selected_label }}</span>
+                <div class="panel-role">전체 시퀀스 분석 결과 (정적)</div>
+            </div>
+            <span class="cap-badge cap-{{ selected.observation.spc.capability }}"
+                  title="임의 임계 0.25 (10_spc_tuning.py:46, 근거 부재) 기반 판정. 실제 라인 규격이 아님.">
+                {{ selected.observation.spc.capability }}
+            </span>
+        </div>
+        <div class="spc-frame">
+            <img class="spc-image"
+                 src="{{ url_for('main.serve_figure', name=spc_figure) }}"
+                 alt="SPC {{ selected_label }}">
+        </div>
+        <div class="center-footer">
+            검출 총 {{ selected.observation.detection.n_detections }}개 ·
+            aspect_med {{ '%.2f' % selected.observation.detection.aspect_median }} ·
+            area_med {{ '%.0f' % selected.observation.detection.area_median }} ·
+            frames {{ selected.observation.detection.n_images_scanned }}
+        </div>
+    </section>
+
+    <section class="advisor">
+        <div class="advisor-header">
+            <span class="advisor-title">Advisor 리포트 · {{ selected_label }}</span>
+            <span class="advisor-focused">focus: {{ selected.focused_defect }}</span>
+        </div>
+
+        <div class="advisor-block">
+            <div class="block-heading">① 관측</div>
+            <div class="obs-grid">
+                <div class="obs-card">
+                    <div class="obs-title">SPC</div>
+                    <ul class="obs-list">
+                        <li>center {{ '%.4f' % selected.observation.spc.center }}</li>
+                        <li>UCL {{ '%.4f' % selected.observation.spc.ucl }}</li>
+                        <li>alert_total {{ selected.observation.spc.alert_total }}</li>
+                        <li>crack_rate {{ '%.3f' % selected.observation.spc.label_crack_rate }} ·
+                            pinhole_rate {{ '%.3f' % selected.observation.spc.label_pinhole_rate }} ·
+                            delam_rate {{ '%.3f' % selected.observation.spc.label_delam_rate }}</li>
+                    </ul>
+                </div>
+                <div class="obs-card">
+                    <div class="obs-title">검출</div>
+                    <ul class="obs-list">
+                        <li>n_detections {{ selected.observation.detection.n_detections }}
+                            (per_image {{ '%.3f' % selected.observation.detection.detections_per_image }})</li>
+                        <li>aspect_median {{ '%.2f' % selected.observation.detection.aspect_median }} ·
+                            aspect_p90 {{ '%.2f' % selected.observation.detection.aspect_p90 }}</li>
+                        <li>area_median {{ '%.0f' % selected.observation.detection.area_median }} ·
+                            area_max {{ '%.0f' % selected.observation.detection.area_max }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="advisor-block">
+            <div class="block-heading">② 해석</div>
+            <ul class="interp-list">
+                {% for item in interpretations %}
+                <li class="interp-item">
+                    <span class="conf-badge conf-{{ item.confidence }}">{{ item.confidence }}</span>
+                    <span class="interp-msg">{{ item.message }}</span>
+                    {% if item.basis %}
+                    <div class="interp-basis">근거: {{ item.basis }}</div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="advisor-block">
+            <div class="block-heading">③ 참조</div>
+            <ul class="ref-list">
+                {% for ref in selected.references %}
+                <li>
+                    <div class="ref-topic">{{ ref.topic }}</div>
+                    <ul class="ref-lines">
+                        {% for line in ref.lines %}
+                        <li>{{ line }}</li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </section>
+
+</section>
+
+{% endblock %}

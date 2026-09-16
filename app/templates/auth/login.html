@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}로그인 — 전극 코팅 결함 인라인 검사{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-card">
+        <h2 class="auth-title">로그인</h2>
+        <p class="auth-subtitle">전극 코팅 결함 인라인 검사 대시보드</p>
+
+        <form method="POST" action="{{ url_for('auth.login_page') }}" class="auth-form">
+            {% if next_url %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            {% endif %}
+
+            <label class="auth-label">사용자명
+                <input class="auth-input" type="text" name="username"
+                       value="{{ form.username or '' }}" required autofocus>
+            </label>
+
+            <label class="auth-label">비밀번호
+                <input class="auth-input" type="password" name="password" required>
+            </label>
+
+            <button class="auth-submit" type="submit">로그인</button>
+        </form>
+
+        <p class="auth-link">
+            계정이 없나요?
+            <a href="{{ url_for('auth.register_page') }}">회원가입</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

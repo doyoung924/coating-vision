@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}벤치마크 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+<section class="bench-header">
+    <h1 class="page-title">이상 탐지 벤치마크 및 강건성</h1>
+    <p class="page-desc">
+        results_benchmark.csv (방법 × 결함) 와 results_robustness.csv (교란 × 방법)
+        를 그대로 표로 렌더한다. AUROC 는 클수록 좋고 FPR@95TPR 은 작을수록 좋다.
+    </p>
+</section>
+
+<section class="bench-body">
+
+    <div class="bench-block">
+        <h2 class="bench-title">벤치마크 · AUROC (FPR@95TPR)</h2>
+        <table class="bench-table">
+            <thead>
+                <tr>
+                    <th>method</th>
+                    {% for target in targets_order %}
+                    <th>{{ target }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in benchmark %}
+                <tr class="{% if row.method == best_method %}row-best{% endif %}">
+                    <td class="method-cell">{{ row.method }}</td>
+                    {% for target in targets_order %}
+                    {% set cell = row.get(target) %}
+                    <td>
+                        {% if cell %}
+                        <div class="metric-main">{{ '%.3f' % cell.auroc }}</div>
+                        <div class="metric-sub">FPR {{ '%.3f' % cell.fpr }}</div>
+                        {% else %}
+                        <span class="muted">—</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="bench-note">
+            drying_defect = 세 결함 통합 이진(정상 vs 결함). 굵은 행이 통합 AUROC 최고 방법이다.
+        </div>
+    </div>
+
+    <div class="bench-block">
+        <h2 class="bench-title">강건성 · fixFPR (임계값 고정)</h2>
+        <table class="bench-table">
+            <thead>
+                <tr>
+                    <th>교란</th>
+                    <th>A3 AUROC</th>
+                    <th>A3 fixFPR</th>
+                    <th>B2 AUROC</th>
+                    <th>B2 fixFPR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in robustness %}
+                <tr>
+                    <td class="method-cell">{{ row.perturbation }}</td>
+                    <td>{{ '%.3f' % row.a3_auroc }}</td>
+                    <td class="{% if row.a3_fpr_fixed > 0.2 %}cell-warn{% endif %}">{{ '%.3f' % row.a3_fpr_fixed }}</td>
+                    <td>{{ '%.3f' % row.b2_auroc }}</td>
+                    <td class="{% if row.b2_fpr_fixed > 0.2 %}cell-warn{% endif %}">{{ '%.3f' % row.b2_fpr_fixed }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="bench-note">
+            임계값을 none 조건에 맞춘 뒤 교란을 주입했을 때의 실제 오탐률. 성능이 더 좋았던 B2 가
+            노이즈 σ ≥ 3 에서 1.000 으로 무너지는 강건성 역전이 이 표에서 관찰된다.
+        </div>
+    </div>
+
+</section>
+
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% import "_pagination.html" as pager %}
+{% block title %}계정 관리 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">계정 관리 (admin 전용)</h1>
+    <p class="page-desc">
+        검사 건수 조인. 자기 자신의 역할을 낮추거나 비활성화할 수 없다.
+        마지막 활성 admin 을 낮추거나 비활성화할 수 없다 (시스템 잠김 방지).
+    </p>
+</section>
+
+{% if error_message %}
+<div class="err-box"><strong>계정 조회 실패</strong><div>{{ error_message }}</div></div>
+{% endif %}
+
+<section class="history-filters">
+    <form method="GET" action="{{ url_for('admin.users_list') }}" class="filter-form">
+        <label class="filter-label">사용자명 (부분 일치)
+            <input type="text" name="username" value="{{ filters.username }}">
+        </label>
+        <label class="filter-label">역할
+            <select name="role">
+                <option value="" {% if not filters.role %}selected{% endif %}>전체</option>
+                {% for r in valid_roles %}
+                <option value="{{ r }}" {% if filters.role == r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="filter-submit">적용</button>
+        <a href="{{ url_for('admin.users_list') }}" class="filter-reset">초기화</a>
+    </form>
+    <div class="history-count">총 {{ total_count }}건</div>
+</section>
+
+<section class="history-table-wrap">
+    {% if rows|length == 0 %}
+    <p class="empty-note">계정 없음.</p>
+    {% else %}
+    <table class="bm-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>username</th>
+                <th>이름</th>
+                <th>이메일</th>
+                <th>역할</th>
+                <th>활성</th>
+                <th>가입일</th>
+                <th>최근 로그인</th>
+                <th class="tnum">검사</th>
+                <th>조작</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            {% set is_self = (row.id == current_user.id) %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>
+                    <strong>{{ row.username }}</strong>
+                    {% if is_self %}<span class="cap-badge cap-normal">본인</span>{% endif %}
+                </td>
+                <td>{{ row.full_name or '—' }}</td>
+                <td>{{ row.email or '—' }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('admin.users_change_role', user_id=row.id) }}"
+                          style="display:inline">
+                        <select name="new_role" onchange="if(confirm('역할을 ' + this.value + ' 로 변경합니다. 계속?')) this.form.submit(); else this.value='{{ row.role }}';">
+                            {% for r in valid_roles %}
+                            <option value="{{ r }}" {% if row.role == r %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+                <td>
+                    <span class="cap-badge cap-{% if row.is_active %}normal{% else %}alarm{% endif %}">
+                        {{ 'active' if row.is_active else 'inactive' }}
+                    </span>
+                </td>
+                <td>{{ row.created_at.strftime('%Y-%m-%d') if row.created_at else '—' }}</td>
+                <td>{{ row.last_login_at.strftime('%Y-%m-%d %H:%M') if row.last_login_at else '—' }}</td>
+                <td class="tnum">{{ row.inspection_count }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('admin.users_toggle_active', user_id=row.id) }}"
+                          onsubmit="return confirm('활성 상태를 토글합니다. 계속?');" style="display:inline">
+                        <button type="submit" class="filter-submit" style="padding:3px 8px;font-size:11px">
+                            {% if row.is_active %}비활성화{% else %}활성화{% endif %}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.users_reset_password', user_id=row.id) }}"
+                          onsubmit="return confirm('비밀번호를 랜덤 12자로 초기화합니다. 새 비밀번호가 flash 로 1회 표시됩니다. 계속?');"
+                          style="display:inline">
+                        <button type="submit" class="danger-btn" style="padding:3px 8px;font-size:11px">
+                            비번 초기화
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+{{ pager.render(page, total_pages, 'admin.users_list',
+                extra_args={'username': filters.username, 'role': filters.role, 'per_page': page_size},
+                total_count=total_count, page_size=page_size,
+                allowed_page_sizes=allowed_page_sizes) }}
+
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% import "_pagination.html" as pager %}
+{% block title %}
+{% if show_user_column %}전체 검사 이력 · 매니저 뷰{% else %}내 검사 이력{% endif %}
+· 전극 코팅 결함 인라인 검사
+{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">
+        {% if show_user_column %}전체 검사 이력 (매니저 뷰){% else %}내 검사 이력{% endif %}
+    </h1>
+    <p class="page-desc">
+        {% if show_user_column %}
+        모든 사용자가 실행한 /inspect 결과 통합 목록. 최신순, 페이지당 {{ page_size }}건.
+        검사자 컬럼과 필터 사용 가능.
+        {% else %}
+        내 계정으로 실행한 /inspect 결과 목록. 최신순, 페이지당 {{ page_size }}건.
+        {% endif %}
+    </p>
+</section>
+
+{% if error_message %}
+<div class="err-box">
+    <strong>이력 조회 실패</strong>
+    <div>{{ error_message }}</div>
+</div>
+{% endif %}
+
+<section class="history-filters">
+    {% set filter_action = url_for('history.history_list_all') if list_scope == 'all' else url_for('history.history_list') %}
+    <form method="GET" action="{{ filter_action }}" class="filter-form">
+        <label class="filter-label">시작일
+            <input type="date" name="date_from" value="{{ filters.date_from }}">
+        </label>
+        <label class="filter-label">종료일
+            <input type="date" name="date_to" value="{{ filters.date_to }}">
+        </label>
+        <label class="filter-label">상태
+            <select name="status">
+                {% for s in valid_status %}
+                <option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {% if show_user_column %}
+        <label class="filter-label">검사자
+            <input type="text" name="username" value="{{ filters.username_filter }}" placeholder="username">
+        </label>
+        {% endif %}
+        <button type="submit" class="filter-submit">적용</button>
+        <a href="{{ filter_action }}" class="filter-reset">초기화</a>
+        {% set export_endpoint = 'history.history_export_all' if list_scope == 'all' else 'history.history_export' %}
+        <a href="{{ url_for(export_endpoint, date_from=filters.date_from, date_to=filters.date_to, status=filters.status, username=filters.username_filter) }}"
+           class="filter-submit" style="background: var(--cap-good); border:none; margin-left:8px">
+            CSV 다운로드
+        </a>
+    </form>
+    <div class="history-count">총 {{ total_count }}건</div>
+</section>
+
+<section class="history-table-wrap">
+    {% if rows|length == 0 %}
+    <p class="empty-note">
+        이력이 없다.
+        {% if not show_user_column %}
+        <a href="{{ url_for('inspect.inspect_page') }}">업로드 파이프라인</a> 에서 검사를 실행하면 여기 쌓인다.
+        {% endif %}
+    </p>
+    {% else %}
+    <table class="bm-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>일시</th>
+                {% if show_user_column %}<th>검사자</th>{% endif %}
+                <th>파일명</th>
+                <th class="tnum">A3 비율</th>
+                <th class="tnum">A3 cells</th>
+                <th class="tnum">crack</th>
+                <th class="tnum">delam</th>
+                <th class="tnum">핀홀</th>
+                <th class="tnum">total ms</th>
+                <th>cold?</th>
+                <th>상태</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') if row.created_at else '' }}</td>
+                {% if show_user_column %}<td>{{ row.username or '—' }}</td>{% endif %}
+                <td class="fname">{{ row.file_name or '' }}</td>
+                <td class="tnum">{% if row.a3_ratio is not none %}{{ '%.4f' % row.a3_ratio }}{% endif %}</td>
+                <td class="tnum">{{ row.a3_cells if row.a3_cells is not none else '' }}</td>
+                <td class="tnum">{% if row.seg_crack is not none %}{{ '%.4f' % row.seg_crack }}{% endif %}</td>
+                <td class="tnum">{% if row.seg_delam is not none %}{{ '%.4f' % row.seg_delam }}{% endif %}</td>
+                <td class="tnum">{{ row.pinhole_count if row.pinhole_count is not none else '' }}</td>
+                <td class="tnum">{% if row.ms_total is not none %}{{ '%.1f' % row.ms_total }}{% endif %}</td>
+                <td>{% if row.is_cold_start %}<span title="첫 요청, 모델 로드 포함">cold</span>{% else %}warm{% endif %}</td>
+                <td><span class="cap-badge cap-{{ row.status }}">{{ row.status }}</span></td>
+                <td><a href="{{ url_for('history.history_detail', inspection_id=row.id) }}">상세</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</section>
+
+{% set pager_endpoint = 'history.history_list_all' if list_scope == 'all' else 'history.history_list' %}
+{{ pager.render(page, total_pages, pager_endpoint,
+                extra_args={
+                    'date_from': filters.date_from,
+                    'date_to': filters.date_to,
+                    'status': filters.status,
+                    'username': filters.username_filter,
+                    'per_page': page_size
+                },
+                total_count=total_count, page_size=page_size,
+                allowed_page_sizes=allowed_page_sizes) }}
+
+{% endblock %}

@@ -1,0 +1,52 @@
+{
+  "note": "대시보드 헤더용 headline 지표. AUROC 는 results_benchmark.csv 에서 자동 계산되고, 아래 네 값은 CSV/JSON 어디에도 저장되지 않은 실험 결과이므로 여기에 캡처해 둔다. INCAPABLE 카운트는 advisor_report.json 에서 자동 계산되지만 규격 상한 0.25 가 임의값이라 카드 크기의 주장으로는 부적합해 headline KPI 로 노출하지 않는다.",
+  "pinhole_map50": {
+    "value": 0.978,
+    "std": 0.009,
+    "n_seeds": 4,
+    "split": "프레임 단위 stratify",
+    "context": "val 값. train 686 / val 150 patch. seed 0~3 best epoch 평균",
+    "test_map50": 0.975,
+    "test_map50_std": 0.023,
+    "test_n_patch": 38,
+    "test_n_boxes": 19,
+    "test_context": "R7/700/middle hold-out (도메인 이전성 대리 지표, 다른 시퀀스 일반화 아님)",
+    "deprecated_value": 0.924,
+    "deprecated_reason": "기존 patch 무작위 분할 val 값 (0.924±0.012). §18-12 재조사에서 val 원본 프레임의 82% 가 train 과 공유돼 있음이 확인됨. §19 프레임 단위 재학습으로 대체. 저자 baseline 0.7956 비교는 §19-6 에서 폐기.",
+    "source": "experiment_log.md §19-2, §19-3 (runs/pinhole_frames_seed{0..3} 4회 평균)"
+  },
+  "semantic_crack_iou": {
+    "value": 0.7431,
+    "std": 0.0021,
+    "n_seeds": 4,
+    "n_val_patch": 382,
+    "split": "프레임 단위 stratify (§41 4-split)",
+    "context": "val crack IoU. U-Net + ResNet34 (imagenet 사전학습), seed 0~3 best epoch 평균",
+    "test_in_iou": 0.7719,
+    "test_in_std": 0.0038,
+    "test_in_n_patch": 118,
+    "test_out_iou": 0.5455,
+    "test_out_std": 0.0210,
+    "test_out_n_patch": 132,
+    "test_out_context": "R7/700/middle 도메인 이전성 대리 지표. §20-6 A3 대비 −27% vs −81% 완화 실측",
+    "delam_note": "delam IoU 는 학습됐으나 §20-5 세 근거 (시드 편차·best epoch 편향·tail median) 로 참고 지표만. 단독 인용 금지",
+    "infer_ms_cpu_batch1": 450.28,
+    "infer_ms_gpu": null,
+    "infer_ms_note": "CPU batch=1 기준 median. GPU 측정치 없음 (§21-1). A3 대비 42배, YOLO 대비 10배 느림",
+    "source": "experiment_log.md §20 (runs/semantic/seed{0..3}/test_results.txt)"
+  },
+  "a3_speed_ms_per_cell": {
+    "value": 0.11,
+    "cell_size": "64x64",
+    "cells_per_patch": 70,
+    "patch_size": "480x640",
+    "approx_ms_per_patch": 7.7,
+    "source": "06_benchmark_anomaly.py:504 stdout `추론 속도: 0.11 ms/patch`. experiment_log.md §16-0 용어로 patch=480x640, cell=64x64. 06 의 'patch' 는 정상 patch 배열 원소로 크기 64x64 이므로 실제 단위는 ms/cell 이다."
+  },
+  "a3_vs_mask_spearman": {
+    "value": 0.8652,
+    "n": 2227,
+    "target": "area_or (crack|delam|pinhole 마스크 합집합 면적비)",
+    "source": "experiment_log.md §15-7 (22_mask_validation.py stem 조인, 2026-09-12)"
+  }
+}

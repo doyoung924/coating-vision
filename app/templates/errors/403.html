@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}403 · 권한 부족{% endblock %}
+{% block content %}
+
+<section class="auth-page">
+    <div class="auth-card" style="max-width:520px">
+        <h2 class="auth-title">403 · 권한이 부족합니다</h2>
+        <p class="auth-subtitle">
+            이 페이지는 요청하신 계정의 권한으로는 접근할 수 없습니다.
+        </p>
+        <p class="page-desc">
+            {% if current_user %}
+            현재 계정: <strong>{{ current_user.username }}</strong>
+            (<span class="cap-badge cap-{% if current_user.role == 'admin' %}alarm{% elif current_user.role == 'manager' %}reviewed{% else %}normal{% endif %}">{{ current_user.role }}</span>)
+            {% else %}
+            비로그인 상태입니다.
+            {% endif %}
+        </p>
+        <p class="auth-link">
+            <a href="{{ url_for('main.index') }}">시퀀스 개요로 돌아가기</a>
+        </p>
+    </div>
+</section>
+
+{% endblock %}

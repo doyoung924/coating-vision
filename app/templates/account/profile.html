@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}내 정보 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">내 정보</h1>
+    <p class="page-desc">
+        username 과 역할은 변경할 수 없다. 이름·이메일만 수정 가능.
+        비밀번호 변경은 <a href="{{ url_for('account.password_page') }}">여기</a>.
+    </p>
+</section>
+
+<section class="auth-page" style="padding-top:12px">
+    <div class="auth-card" style="max-width: 480px">
+        <div class="auth-title">기본 정보</div>
+        <ul class="obs-list" style="margin-bottom:16px">
+            <li><strong>ID</strong>: {{ profile.id }}</li>
+            <li><strong>username</strong>: {{ profile.username }}</li>
+            <li><strong>역할</strong>:
+                <span class="cap-badge cap-{% if profile.role == 'admin' %}alarm{% elif profile.role == 'manager' %}reviewed{% else %}normal{% endif %}">
+                    {{ profile.role }}
+                </span>
+            </li>
+            <li><strong>가입일</strong>: {{ profile.created_at.strftime('%Y-%m-%d %H:%M') if profile.created_at else '—' }}</li>
+            <li><strong>최근 로그인</strong>: {{ profile.last_login_at.strftime('%Y-%m-%d %H:%M:%S') if profile.last_login_at else '—' }}</li>
+        </ul>
+
+        <form method="POST" action="{{ url_for('account.account_page') }}" class="auth-form">
+            <label class="auth-label">이름 <span class="auth-hint">(100자 이하, 선택)</span>
+                <input class="auth-input" type="text" name="full_name" maxlength="100"
+                       value="{{ profile.full_name }}">
+            </label>
+            <label class="auth-label">이메일 <span class="auth-hint">(120자 이하, 선택)</span>
+                <input class="auth-input" type="email" name="email" maxlength="120"
+                       value="{{ profile.email }}">
+            </label>
+            <button class="auth-submit" type="submit">저장</button>
+        </form>
+    </div>
+</section>
+
+{% endblock %}

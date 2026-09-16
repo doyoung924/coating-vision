@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}전극 코팅 결함 인라인 검사{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="topnav-title">전극 코팅 결함 인라인 검사</div>
+        <div class="topnav-links">
+            <a href="{{ url_for('stream.stream_page') }}" class="topnav-link">인라인 스트림</a>
+            <a href="{{ url_for('inspect.inspect_page') }}" class="topnav-link">업로드 파이프라인</a>
+            <a href="{{ url_for('history.history_list') }}" class="topnav-link">내 이력</a>
+            {% if current_user %}
+            <a href="{{ url_for('board.board_list') }}" class="topnav-link">게시판</a>
+            {% endif %}
+            {% if current_user and current_user.role in ('manager', 'admin') %}
+            <a href="{{ url_for('history.history_list_all') }}" class="topnav-link">전체 이력</a>
+            <a href="{{ url_for('spc.spc_page') }}" class="topnav-link">SPC</a>
+            {% endif %}
+            <a href="{{ url_for('main.index') }}" class="topnav-link">시퀀스 개요</a>
+            <a href="{{ url_for('benchmark.benchmark_page') }}" class="topnav-link">벤치마크</a>
+        </div>
+        <div class="topnav-user">
+            {% if current_user %}
+                {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('admin.users_list') }}" class="topnav-link">계정 관리</a>
+                {% endif %}
+                <a href="{{ url_for('account.account_page') }}" class="topnav-user-name-link">
+                    <span class="topnav-user-name">{{ current_user.username }}</span>
+                </a>
+                <span class="topnav-user-role role-{{ current_user.role }}">{{ current_user.role }}</span>
+                <a href="{{ url_for('auth.logout_page') }}" class="topnav-link">로그아웃</a>
+            {% else %}
+                <a href="{{ url_for('auth.login_page') }}" class="topnav-link">로그인</a>
+                <a href="{{ url_for('auth.register_page') }}" class="topnav-link">회원가입</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}업로드 파이프라인 · 전극 코팅 결함 인라인 검사{% endblock %}
+{% block content %}
+
+<section class="inspect-header">
+    <h1 class="page-title">업로드 파이프라인</h1>
+    <p class="page-desc">
+        업로드된 이미지에 대해 4단계 파이프라인을 순서대로 실행한다.
+        ① A3 이상 탐지 (밝기 표준편차 · patch {{ '%.3f' % patch_threshold }}) →
+        ② YOLO 검출 → ③ 형태 분석 (defect_map 규칙) → ④ Advisor 판정.
+        각 단계 우측에 소요 시간을 표기한다.
+    </p>
+    <p class="warn-banner">
+        ⚠ CoatingVision 계열(연료전지 슬롯다이 코팅) 이미지가 아닌 경우 결과는 무의미하다.
+        배터리 전극 이미지에도 형태 판정 규칙은 이전 가능하나 밝기 기반 이상 탐지 임계값은
+        하부 노출 대비가 달라 재교정이 필요하다.
+    </p>
+</section>
+
+<section class="inspect-body">
+
+    <form class="upload-form" method="POST" enctype="multipart/form-data">
+        <label class="upload-label">
+            <input type="file" name="image" accept="image/*" required>
+            <span>이미지 선택</span>
+        </label>
+        <button type="submit" class="upload-submit">파이프라인 실행</button>
+    </form>
+
+    <div class="sample-block">
+        <div class="sample-heading">또는 예시로 시도해보기 (CoatingVision R1)</div>
+        <div class="sample-buttons">
+            {% for sample in samples %}
+            <form method="POST" enctype="multipart/form-data" class="sample-form">
+                <input type="hidden" name="sample" value="{{ sample.name }}">
+                <button type="submit" class="sample-btn"
+                        {% if not sample.available %}disabled title="static/samples/{{ sample.file }} 없음"{% endif %}>
+                    <span class="sample-label">{{ sample.label }}</span>
+                    <span class="sample-hint">{{ sample.hint }}</span>
+                    {% if not sample.available %}<span class="sample-missing">준비 필요</span>{% endif %}
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+        <div class="sample-note">
+            샘플이 안 보이면 <code>python 18_prepare_samples.py</code> 를 실행해 static/samples/ 에 3장을 복사.
+        </div>
+    </div>
+
+    {% if not model_ready %}
+    <div class="err-box">
+        <strong>모델 로드 실패</strong>
+        <div>{{ model_error }}</div>
+    </div>
+    {% endif %}
+
+    {% if result and result.error %}
+    <div class="err-box">
+        <strong>오류</strong>
+        <div>{{ result.error }}</div>
+    </div>
+    {% endif %}
+
+    {% if not result %}
+    <div class="stage-preview">
+        <div class="block-heading">파이프라인 구성 (업로드 전 미리보기)</div>
+        <div class="stage-cards">
+            {% for stage in stages %}
+            <div class="stage-card">
+                <div class="stage-num">{{ stage.num }}</div>
+                <div class="stage-title">{{ stage.title }}</div>
+                <div class="stage-detail">{{ stage.detail }}</div>
+                <div class="stage-expected">{{ stage.expected }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="stage-note">
+            이미지가 업로드되면 각 단계 우측에 실제 소요 시간이 표기된다. YOLO 는 CPU 환경에서 콜드
+            스타트 시 2 초 대, 두 번째 이후 400 ms 대로 안정된다 (모델 자체 추론은 55 ms 수준).
+        </div>
+    </div>
+    {% endif %}
+
+    {% if result and not result.error %}
+
+    {% if result.inspection_id %}
+    <div class="inspect-saved-note">
+        검사 결과가 이력에 저장되었습니다 · <strong>검사 #{{ result.inspection_id }}</strong> ·
+        <a href="{{ url_for('history.history_detail', inspection_id=result.inspection_id) }}">이력에서 보기</a>
+    </div>
+    {% endif %}
+
+    <div class="inspect-images">
+        <figure class="inspect-figure">
+            <figcaption>원본 ({{ result.image_size.w }}×{{ result.image_size.h }})</figcaption>
+            <img src="{{ result.orig_url }}" alt="원본">
+        </figure>
+        <figure class="inspect-figure">
+            <figcaption>YOLO 검출 오버레이 · {{ result.detect.n_detections }}개</figcaption>
+            <img src="{{ result.anno_url }}" alt="검출 오버레이">
+        </figure>
+        <figure class="inspect-figure">
+            <figcaption>A3 이상 히트맵 · {{ result.anomaly.anomalous_cells }}/{{ result.anomaly.total_cells }} cell</figcaption>
+            <img src="{{ result.heat_url }}" alt="이상 히트맵">
+        </figure>
+        {% if result.seg and result.seg.available %}
+        <figure class="inspect-figure">
+            <figcaption>세그 오버레이 · crack {{ '%.2f%%' % (result.seg.crack_ratio * 100) }} / delam {{ '%.2f%%' % (result.seg.delam_ratio * 100) }}</figcaption>
+            <img src="{{ result.seg_url }}" alt="세그 오버레이">
+        </figure>
+        {% endif %}
+    </div>
+
+    <details class="pipe-section" open>
+        <summary>
+            <span class="pipe-num">①</span>
+            <span class="pipe-title">이상 탐지 · A3 밝기 표준편차</span>
+            <span class="pipe-time">{{ '%.1f' % result.anomaly.elapsed_ms_per_patch }} ms/patch · {{ '%.3f' % result.anomaly.per_cell_ms }} ms/cell</span>
+        </summary>
+        <div class="pipe-body">
+            <ul class="pipe-list">
+                <li>총 cell {{ result.anomaly.total_cells }}개 (64×64 stride 64, patch=480×640)</li>
+                <li>임계값 {{ '%.3f' % result.anomaly.threshold }} (CoatingVision 결함 라벨 0 프레임의 STD 95pct)</li>
+                <li>이상 cell <strong>{{ result.anomaly.anomalous_cells }}개</strong> · 비율 <strong>{{ '%.1f%%' % (result.anomaly.ratio * 100) }}</strong></li>
+            </ul>
+        </div>
+    </details>
+
+    <details class="pipe-section" open>
+        <summary>
+            <span class="pipe-num">②</span>
+            <span class="pipe-title">검출 · YOLOv8n (runs/pinhole_v1)</span>
+            <span class="pipe-time">추론 {{ '%.1f' % result.detect.infer_ms }} ms + 전후처리 {{ '%.1f' % result.detect.pre_post_ms }} ms</span>
+        </summary>
+        <div class="pipe-body">
+            {% if result.detect.n_detections == 0 %}
+            <p class="empty-note">검출된 핀홀이 없다.</p>
+            {% else %}
+            <table class="det-table">
+                <thead>
+                    <tr>
+                        <th>#</th><th>conf</th><th>x1,y1</th><th>x2,y2</th><th>w×h</th><th>aspect</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for det in result.detect.detections %}
+                    <tr>
+                        <td>{{ det.index }}</td>
+                        <td>{{ '%.2f' % det.conf }}</td>
+                        <td>{{ det.x1 }},{{ det.y1 }}</td>
+                        <td>{{ det.x2 }},{{ det.y2 }}</td>
+                        <td>{{ det.w }}×{{ det.h }}</td>
+                        <td>{{ '%.2f' % det.aspect }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </details>
+
+    <details class="pipe-section" open>
+        <summary>
+            <span class="pipe-num">②'</span>
+            <span class="pipe-title">세그 · U-Net + ResNet34 (runs/semantic/seed0)</span>
+            <span class="pipe-time">
+                {% if result.seg and result.seg.available %}
+                {{ '%.1f' % result.seg.elapsed_ms }} ms/patch (CPU)
+                {% else %}
+                (미실행)
+                {% endif %}
+            </span>
+        </summary>
+        <div class="pipe-body">
+            {% if result.seg and result.seg.available %}
+            <ul class="pipe-list">
+                <li>crack 픽셀 <strong>{{ result.seg.crack_pixels }}</strong> ({{ '%.3f%%' % (result.seg.crack_ratio * 100) }})</li>
+                <li>delam 픽셀 <strong>{{ result.seg.delam_pixels }}</strong> ({{ '%.3f%%' % (result.seg.delam_ratio * 100) }})
+                    <em style="color:#888">— §20-5 안정성 한계 (시드 편차·best epoch 편향·tail median) 로 참고값</em></li>
+                <li>처리 시간 요청당 1회 (§21-5 실행 정책 · 캐시/비동기 없음)</li>
+            </ul>
+            {% else %}
+            <p class="empty-note">세그 모델 미로드 ({{ result.seg.error if result.seg else '' }})</p>
+            {% endif %}
+        </div>
+    </details>
+
+    <details class="pipe-section" open>
+        <summary>
+            <span class="pipe-num">③</span>
+            <span class="pipe-title">형태 분석 · defect_map.pinhole.diagnostic_rule</span>
+            <span class="pipe-time">{{ '%.1f' % result.shape.elapsed_ms }} ms</span>
+        </summary>
+        <div class="pipe-body">
+            {% if result.shape.per_detection|length == 0 %}
+            <p class="empty-note">검출이 없어 형태 분석을 수행하지 않았다.</p>
+            {% else %}
+            <div class="shape-summary">
+                <div>종횡비 중앙값 <strong>{{ '%.2f' % result.shape.median_aspect }}</strong></div>
+                <div>roundness 중앙값
+                    {% if result.shape.median_roundness is none %}
+                    <span class="muted">n/a</span>
+                    {% else %}
+                    <strong>{{ '%.3f' % result.shape.median_roundness }}</strong>
+                    {% endif %}
+                </div>
+            </div>
+            <table class="det-table">
+                <thead>
+                    <tr><th>#</th><th>aspect</th><th>roundness</th></tr>
+                </thead>
+                <tbody>
+                    {% for entry in result.shape.per_detection %}
+                    <tr>
+                        <td>{{ entry.index }}</td>
+                        <td>{{ '%.2f' % entry.aspect }}</td>
+                        <td>
+                            {% if entry.roundness is none %}
+                            <span class="muted">n/a</span>
+                            {% else %}
+                            {{ '%.3f' % entry.roundness }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            <div class="shape-rules">
+                <div class="block-heading">defect_map 참조 규칙</div>
+                <ul>
+                    {% for rule in result.shape.reference.rules %}
+                    <li>
+                        <span class="conf-badge conf-{{ rule.confidence }}">{{ rule.confidence }}</span>
+                        <span>{{ rule.condition }} → {{ rule.inference }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="shape-caveat">{{ result.shape.reference.threshold_caveat }}</div>
+            </div>
+        </div>
+    </details>
+
+    <details class="pipe-section" open>
+        <summary>
+            <span class="pipe-num">④</span>
+            <span class="pipe-title">Advisor · 관측 / 해석 / 참조</span>
+            <span class="pipe-time">규칙 기반 (0 ms)</span>
+        </summary>
+        <div class="pipe-body">
+            <div class="advisor-block">
+                <div class="block-heading">관측</div>
+                <ul class="obs-list">
+                    <li>anomaly_ratio {{ '%.4f' % result.advisor.observation.anomaly_ratio }} ·
+                        anomaly_patches {{ result.advisor.observation.anomaly_patches }} ·
+                        patch_threshold {{ '%.3f' % result.advisor.observation.patch_threshold }}</li>
+                    <li>n_detections {{ result.advisor.observation.n_detections }} ·
+                        median_aspect
+                        {% if result.advisor.observation.median_aspect is none %}n/a{% else %}{{ '%.2f' % result.advisor.observation.median_aspect }}{% endif %} ·
+                        median_roundness
+                        {% if result.advisor.observation.median_roundness is none %}n/a{% else %}{{ '%.3f' % result.advisor.observation.median_roundness }}{% endif %}</li>
+                </ul>
+            </div>
+
+            <div class="advisor-block">
+                <div class="block-heading">해석</div>
+                <ul class="interp-list">
+                    {% for item in result.advisor.interpretations %}
+                    <li class="interp-item">
+                        <span class="conf-badge conf-{{ item.confidence }}">{{ item.confidence }}</span>
+                        <span class="interp-msg">{{ item.message }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="advisor-block">
+                <div class="block-heading">참조</div>
+                <ul class="ref-list">
+                    {% for ref in result.advisor.references %}
+                    <li>
+                        <div class="ref-topic">{{ ref.topic }}</div>
+                        <ul class="ref-lines">
+                            {% for line in ref.lines %}
+                            <li>{{ line }}</li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    {% endif %}
+</section>
+
+{% endblock %}

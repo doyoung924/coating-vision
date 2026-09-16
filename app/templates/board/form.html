@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'new' %}글쓰기{% else %}글 수정{% endif %} · 게시판{% endblock %}
+{% block content %}
+
+<section class="history-header">
+    <h1 class="page-title">{% if mode == 'new' %}글쓰기{% else %}글 수정{% endif %}</h1>
+</section>
+
+{% if inspection_summary %}
+<section class="history-detail-block">
+    <div class="block-heading">연결된 검사 (읽기 전용)</div>
+    <p>
+        <a href="{{ url_for('history.history_detail', inspection_id=inspection_summary.id) }}">검사 #{{ inspection_summary.id }}</a>
+        · 파일 <code>{{ inspection_summary.file_name or '—' }}</code>
+        · 상태 <span class="cap-badge cap-{{ inspection_summary.status }}">{{ inspection_summary.status }}</span>
+        · A3 {% if inspection_summary.a3_ratio is not none %}{{ '%.4f' % inspection_summary.a3_ratio }}{% else %}—{% endif %}
+        · crack {% if inspection_summary.seg_crack is not none %}{{ '%.4f' % inspection_summary.seg_crack }}{% else %}—{% endif %}
+        · 핀홀 {{ inspection_summary.pinhole_count if inspection_summary.pinhole_count is not none else '—' }}
+    </p>
+</section>
+{% endif %}
+
+<section class="auth-page" style="padding-top:12px">
+    <div class="auth-card" style="max-width: 720px">
+        {% if mode == 'new' %}
+        <form method="POST" action="{{ url_for('board.board_new') }}" class="auth-form">
+        {% else %}
+        <form method="POST" action="{{ url_for('board.board_edit', post_id=post_id) }}" class="auth-form">
+        {% endif %}
+
+            {% if form.inspection_id %}
+            <input type="hidden" name="inspection_id" value="{{ form.inspection_id }}">
+            {% endif %}
+
+            <label class="auth-label">카테고리
+                <select name="category" class="auth-input">
+                    {% for c in ['free', 'qna', 'report', 'notice'] %}
+                    {% if c != 'notice' or can_write_notice %}
+                    <option value="{{ c }}" {% if form.category == c %}selected{% endif %}>{{ c }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                {% if not can_write_notice %}
+                <span class="auth-hint">공지사항 (notice) 은 매니저 이상만 작성 가능</span>
+                {% endif %}
+            </label>
+
+            <label class="auth-label">제목 <span class="auth-hint">(200자 이하)</span>
+                <input class="auth-input" type="text" name="title"
+                       value="{{ form.title }}" maxlength="200" required autofocus>
+            </label>
+
+            <label class="auth-label">본문 <span class="auth-hint">(4000자 이하, 개행은 &lt;br&gt; 변환)</span>
+                <textarea class="auth-input" name="content" rows="12" maxlength="4000">{{ form.content }}</textarea>
+            </label>
+
+            <button class="auth-submit" type="submit">{% if mode == 'new' %}작성{% else %}저장{% endif %}</button>
+        </form>
+    </div>
+</section>
+
+{% endblock %}

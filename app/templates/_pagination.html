@@ -1,0 +1,87 @@
+{#
+  §3-9 페이지네이션 매크로.
+  사용:
+      {% import "_pagination.html" as pager %}
+      {{ pager.render(page, total_pages, 'board.board_list', extra_args={'category': category, 'per_page': page_size},
+                      total_count=total_count, page_size=page_size, allowed_page_sizes=allowed_page_sizes) }}
+
+  - 처음 · 이전 · 페이지번호(현재±2, 생략 기호) · 다음 · 마지막
+  - 현재 페이지는 링크 아님
+  - 전체 건수와 현재 범위 표시
+  - per_page 드롭다운 (allowed_page_sizes 를 넘기면 표시)
+  - extra_args 는 그대로 URL 쿼리에 유지 (filter, category 등)
+#}
+
+{% macro render(page, total_pages, endpoint, extra_args={}, total_count=0, page_size=20, allowed_page_sizes=None) %}
+{% set start_row = (page - 1) * page_size + 1 %}
+{% set end_row = [page * page_size, total_count] | min %}
+<section class="history-pager pager-full">
+    <div class="pager-summary">
+        {% if total_count == 0 %}
+        전체 0건
+        {% else %}
+        전체 {{ total_count }}건 중 {{ start_row }}–{{ end_row }}
+        {% endif %}
+    </div>
+
+    <div class="pager-controls">
+        {% if page > 1 %}
+        <a href="{{ url_for(endpoint, page=1, **extra_args) }}" class="pager-btn">처음</a>
+        <a href="{{ url_for(endpoint, page=page-1, **extra_args) }}" class="pager-btn">이전</a>
+        {% else %}
+        <span class="pager-btn pager-disabled">처음</span>
+        <span class="pager-btn pager-disabled">이전</span>
+        {% endif %}
+
+        {#- 인라인으로 페이지 번호 목록 렌더 -#}
+        {% set start = [1, page - 2] | max %}
+        {% set end = [total_pages, page + 2] | min %}
+        {% if start > 1 %}
+            <a href="{{ url_for(endpoint, page=1, **extra_args) }}" class="pager-btn">1</a>
+            {% if start > 2 %}
+            <span class="pager-ellipsis">…</span>
+            {% endif %}
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+            {% if p == page %}
+            <span class="pager-btn pager-current">{{ p }}</span>
+            {% else %}
+            <a href="{{ url_for(endpoint, page=p, **extra_args) }}" class="pager-btn">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if end < total_pages %}
+            {% if end < total_pages - 1 %}
+            <span class="pager-ellipsis">…</span>
+            {% endif %}
+            <a href="{{ url_for(endpoint, page=total_pages, **extra_args) }}" class="pager-btn">{{ total_pages }}</a>
+        {% endif %}
+
+        {% if page < total_pages %}
+        <a href="{{ url_for(endpoint, page=page+1, **extra_args) }}" class="pager-btn">다음</a>
+        <a href="{{ url_for(endpoint, page=total_pages, **extra_args) }}" class="pager-btn">마지막</a>
+        {% else %}
+        <span class="pager-btn pager-disabled">다음</span>
+        <span class="pager-btn pager-disabled">마지막</span>
+        {% endif %}
+    </div>
+
+    {% if allowed_page_sizes %}
+    <form method="GET" class="pager-per-page" action="{{ url_for(endpoint) }}">
+        {#- 기존 쿼리 파라미터를 hidden 으로 전달 (page 는 1로 리셋) -#}
+        {% for key, val in extra_args.items() %}
+            {% if key != 'per_page' and key != 'page' and val is not none and val != '' %}
+            <input type="hidden" name="{{ key }}" value="{{ val }}">
+            {% endif %}
+        {% endfor %}
+        <label>
+            페이지당
+            <select name="per_page" onchange="this.form.submit()">
+                {% for size in allowed_page_sizes %}
+                <option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </form>
+    {% endif %}
+</section>
+{% endmacro %}
