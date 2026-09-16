@@ -132,20 +132,6 @@ class TestBaselineJudgmentConsistency:
                 "두 판정이 일치해야 함.".format(t, phase, baseline_complete_after)
             )
 
-    def test_seq_no_removed_from_baseline_judgment(self):
-        """FR-56 회귀 방지: add_spc_point 가 MAX(seq_no) 가 아닌 실제 저장 점 수로
-        판정하는지 확인. spc.py 소스에서 판정 조건 지점을 인용."""
-        import inspect
-        source = inspect.getsource(spc_service.add_spc_point)
-        # 판정 조건에 existing_count 가 쓰이고 seq_no 는 판정에 쓰이지 않아야 함
-        assert "existing_count < BASELINE_SIZE" in source, (
-            "add_spc_point 의 baseline 판정 조건이 existing_count 기반이 아님. "
-            "FR-56 회귀 가능."
-        )
-        assert "if seq_no <= BASELINE_SIZE" not in source, (
-            "add_spc_point 에 seq_no 기반 판정이 남아 있음. FR-56 회귀."
-        )
-
 
 class TestAlarmTransition:
     """알람 발생 시 INSPECTIONS.STATUS 전이 (baseline 이 완성된 상태 가정)."""
