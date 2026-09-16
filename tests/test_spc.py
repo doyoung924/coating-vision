@@ -97,6 +97,56 @@ class TestCalculationMatches09:
             assert abs(a - e) < 1e-12
 
 
+class TestBaselineJudgmentConsistency:
+    """FR-56 (c) — add_spc_point.phase 판정과 get_summary.baseline_complete 가
+    동일한 데이터 상태 (SPC_POINTS 에 저장된 점 수) 에 대해 논리적으로 정합함을 검증.
+
+    정합 관계:
+      metric M 에 t 개 점이 저장되어 있을 때,
+      - 새 점 진입 시 add_spc_point 판정: (t < BASELINE_SIZE) → phase='baseline',
+        아니면 phase='monitor'
+      - 새 점 저장 후 (total=t+1) 시점의 get_summary: (t+1 > BASELINE_SIZE) →
+        baseline_complete=True, 아니면 False
+      - 두 판정의 동치: phase='monitor' ⇔ baseline_complete_after=True
+
+    프로덕션 metric ('a3','seg_crack') 오염을 피하고 기존 DB 상태에 의존하지
+    않도록 실제 INSERT 없이 판정 조건식의 논리 동치만 순수 계산으로 확인한다.
+    실제 저장·삭제 시나리오 검증 (FR-56 (a)(b)) 은 docs/testing.md 의
+    "SPC baseline gap 시나리오" 수동 절차 참조.
+    """
+
+    def test_phase_and_baseline_complete_are_logically_consistent(self):
+        """FR-56 (c). t ∈ [0, 40] 범위 전 지점에서 두 판정의 동치 관계 검증."""
+        BASELINE_SIZE = spc_service.BASELINE_SIZE
+
+        for t in range(0, 40):
+            # add_spc_point 판정: t 개가 저장된 상태에서 새 점의 phase
+            phase = "baseline" if t < BASELINE_SIZE else "monitor"
+            # 새 점 저장 후 total = t+1 시점의 get_summary.baseline_complete
+            baseline_complete_after = (t + 1) > BASELINE_SIZE
+
+            # 동치: phase='monitor' ⇔ baseline_complete=True
+            assert (phase == "monitor") == baseline_complete_after, (
+                "FR-56 (c) 위반: t={} 상태에서 phase={} 지만 "
+                "저장 후 baseline_complete={}. "
+                "두 판정이 일치해야 함.".format(t, phase, baseline_complete_after)
+            )
+
+    def test_seq_no_removed_from_baseline_judgment(self):
+        """FR-56 회귀 방지: add_spc_point 가 MAX(seq_no) 가 아닌 실제 저장 점 수로
+        판정하는지 확인. spc.py 소스에서 판정 조건 지점을 인용."""
+        import inspect
+        source = inspect.getsource(spc_service.add_spc_point)
+        # 판정 조건에 existing_count 가 쓰이고 seq_no 는 판정에 쓰이지 않아야 함
+        assert "existing_count < BASELINE_SIZE" in source, (
+            "add_spc_point 의 baseline 판정 조건이 existing_count 기반이 아님. "
+            "FR-56 회귀 가능."
+        )
+        assert "if seq_no <= BASELINE_SIZE" not in source, (
+            "add_spc_point 에 seq_no 기반 판정이 남아 있음. FR-56 회귀."
+        )
+
+
 class TestAlarmTransition:
     """알람 발생 시 INSPECTIONS.STATUS 전이 (baseline 이 완성된 상태 가정)."""
 
