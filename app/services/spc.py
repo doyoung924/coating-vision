@@ -68,14 +68,23 @@ def add_spc_point(inspection_id, metric, value):
     value = float(value)
 
     with app_db.get_session() as sqlalchemy_session:
-        # 다음 SEQ_NO
+        # 다음 SEQ_NO (연속 번호 부여 목적 — baseline 판정과 무관, FR-56)
         max_seq_scalar = sqlalchemy_session.query(func.max(SpcPoint.seq_no)).filter(
             SpcPoint.metric == metric,
         ).scalar()
         max_seq = int(max_seq_scalar or 0)
         seq_no = max_seq + 1
 
-        if seq_no <= BASELINE_SIZE:
+        # baseline 판정은 실제 저장된 점 수 기준 (FR-56).
+        # get_summary 와 동일한 기준을 쓰기 위해 COUNT 사용.
+        # SEQ_NO 를 쓰면 CASCADE 삭제로 gap 이 생겼을 때 실제 점 수보다 큰 값이 되어
+        # 미완성 상태를 완성으로 오판정할 수 있다.
+        count_scalar = sqlalchemy_session.query(func.count(SpcPoint.id)).filter(
+            SpcPoint.metric == metric,
+        ).scalar()
+        existing_count = int(count_scalar or 0)
+
+        if existing_count < BASELINE_SIZE:
             # baseline 수집 단계. 관리한계·EWMA 는 아직 없다.
             row = SpcPoint(
                 inspection_id=inspection_id,
