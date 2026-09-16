@@ -8,6 +8,12 @@
     "source": "R1"
   },
   "verification_status": "DRAFT - 도영 검수 필요. 특히 property_impact와 severity 판정 기준.",
+  "capability_threshold_note": {
+    "good_boundary": 0.1,
+    "marginal_boundary": 0.25,
+    "arbitrary": true,
+    "reason": "10_spc_tuning.py:46 CAPABILITY_THRESHOLD = 0.25. experiment_log.md §9-4 '임의값이다. 물리적 근거가 없으며'. §15-10 재검증에서 area_or 도메인에 같은 임계를 적용하자 8 중 7 이 CAPABLE 로 뒤집힘. 절대 수치가 아닌 상대 순위로만 해석."
+  },
   "sequences": [
     {
       "run_id": "R1",
@@ -103,12 +109,12 @@
         {
           "topic": "핀홀 root_causes | operational (라인 운전 중 조정 가능)",
           "lines": [
-            "- 코팅 갭 과대 (비드 불안정/공기 포집 -> 대형 불규칙 핀홀) [confidence=high, src=?]",
-            "- 코팅 갭 과소 (고전단/기포 팽창 -> 미세 핀홀 다발) [confidence=high, src=?]",
-            "- 슬러리 내 잔류 기포 (탈포 부족 시 증가) [confidence=high, src=?]",
-            "- 기재 표면 오염 (젖음성 저하 시 증가) [confidence=high, src=?]",
-            "- 응집체/이물 (좁은 갭에서 일렬 핀홀 유발) [confidence=medium, src=?]",
-            "- 건조 속도 과다 [confidence=medium, src=?]"
+            "- 코팅 갭 과대 (비드 불안정/공기 포집 -> 대형 불규칙 핀홀) [confidence=high, src=도영]",
+            "- 코팅 갭 과소 (고전단/기포 팽창 -> 미세 핀홀 다발) [confidence=high, src=도영]",
+            "- 슬러리 내 잔류 기포 (탈포 부족 시 증가) [confidence=high, src=R1]",
+            "- 기재 표면 오염 (젖음성 저하 시 증가) [confidence=high, src=R1]",
+            "- 응집체/이물 (좁은 갭에서 일렬 핀홀 유발) [confidence=medium, src=도영]",
+            "- 건조 속도 과다 [confidence=medium, src=R1]"
           ]
         },
         {

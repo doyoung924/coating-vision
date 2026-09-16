@@ -6,6 +6,15 @@
 
 # \- 의존성: requirements.txt
 
+## 용어 정의 (혼용 금지)
+
+`experiment_log.md` §16-0 에서 확정된 용어이며 앞으로 모든 문서·코드·표기에 그대로 사용한다.
+
+- **patch**: 저자 단위 480×640 이미지. `segmentation/images/image_N.jpg` · `results_spc.csv` 의 한 행 · `results_mask_area.csv` 의 한 행
+- **cell** : A3 판정 단위 64×64. patch 당 70 개 (7 rows × 10 cols). `cell_index = row * 10 + col`
+
+"patch" 를 이전 문서에서 64×64 조각의 뜻으로 쓴 경우가 있으나(예: 06 벤치마크의 `test_normal[i]` 배열 원소), 이 문서에서는 그 의미로 사용하지 않는다. 표기 시 반드시 patch 는 480×640, cell 은 64×64 를 뜻한다는 것을 명시한다. 예: "0.11 ms/cell (patch 당 70 cell → 약 8 ms/patch)".
+
 ## 프로젝트 목적
 
 이차전지 전극 코팅 공정의 표면 결함을 검출하고, 결함 유형으로부터 원인 공정 인자를 역추적하여 점검 항목을 제시하는 스마트팩토리 품질관리 시스템.
@@ -20,11 +29,12 @@
 
 ```
 \[1] 이상 탐지    ████████████████████  완료 - 벤치마크 6종 + 강건성 시험
-\[2] 검출         ████████████████████  완료 - 핀홀 mAP 0.924, 저자 baseline +12.8%p
+\[2] 검출 (pinhole) ██████████████████  완료 - 프레임 분할 val 0.978 / test 0.975 (N=38 R7/700). 저자 비교 폐기 (§19-6)
+\[2'] 세그 (crack·delam) ████████████  완료 - U-Net+ResNet34, val crack IoU 0.7431 / test_out 0.5455 (§20). delam 참고
 \[3] SPC          ████████████████████  완료 - 관리도 + 시각화 (figures/spc_*.png, 15_spc_visualize.py)
 \[4] Advisor      ████████████████████  완료 - 3층 규칙 기반, defect_map 조회 (16_advisor.py, advisor_report.{txt,json})
-대시보드         ░░░░░░░░░░░░░░░░░░░░  미착수
-README           ░░░░░░░░░░░░░░░░░░░░  미착수
+\[5] 대시보드    ████████████████████  완료 - Flask + Jinja2, /stream 재생 + /inspect 파이프라인 + /(개요) + /benchmark (app.py, 17_precompute_detections.py)
+README           ████████████████████  완료 - 결과 요약 + 핵심 3개 + 부수 6개 + 재현 방법 + 한계
 ```
 
 **중요**: `docs/experiment\_log.md` (782줄)에 전 과정이 기록되어 있다. 작업 시작 전 반드시 읽을 것. 이 파일이 프로젝트의 실질적 인계 문서다.
@@ -33,15 +43,15 @@ README           ░░░░░░░░░░░░░░░░░░░░  �
 
 ## 핵심 발견 (포트폴리오의 실체)
 
-1. **공정 조건-결함률 정량화**: 코팅 갭 600→1100µm에서 크랙률 59.2%→98.2% 단조 증가. 원논문은 서술만 했고 수치는 없었다.
-2. **핀홀 U자 관계 부분 확인**: 좁은 갭에서 종횡비(1.21) / roundness(0.687\~0.739) / area\_max(3,685)가 일관되게 "길쭉하고 불규칙"을 가리킴. 응집체 걸림 메커니즘과 부합. 넓은 갭 구간은 실험 범위 밖.
-3. **딥러닝 불필요성 검증**: 밝기 표준편차 하나로 AUROC 0.983 (0.11 ms/patch). 딥러닝은 0.990. AUROC로는 1%p 차이지만 FPR@95TPR은 8.7%→2.6%.
+1. **공정 조건-결함률 정량화**: CoatingVision(Nafion/PTFE·Vulcan 카본, 슬롯다이 코팅) R1 시퀀스에서 코팅 갭 600→1100µm 증가 시 표면 크랙 라벨률 59.2%→98.2%로 단조 증가. 원논문은 이 관계를 서술만 했고 수치는 없었다. 배터리 전극(NMC/PVdF/Al foil)에도 건조 수축에 의한 크랙 형성 물리는 성립하나, 갭-크랙률 곡선의 절대값은 슬러리·집전체 조성이 달라 재측정이 필요하다. 다른 지표 관측(§15-10): patch 단위 마스크 면적비 μ(area_or) 로 재보면 1000µm 까지 대체로 단조 증가, 1100µm 에서 감소·런 간 편차 확대(0.0247 vs 0.0420), 700µm 에서도 R1 0.0208 vs R7/middle 0.0624. 라벨률과 면적비는 서로 다른 지표이며 갭 축을 따라 완전히 동형은 아니다.
+2. **핀홀 U자 관계 부분 확인**: CoatingVision 좁은 갭 구간에서 핀홀은 종횡비 1.21, roundness 0.687\~0.739, area\_max 3,685로 일관되게 "길쭉하고 불규칙"한 형태를 보였고, 이는 Nafion 바인더 슬러리 응집체가 슬롯다이 립에 걸리는 메커니즘과 부합한다. 넓은 갭 구간은 실험 범위 밖이라 U자의 우측 팔은 미관측이다. 배터리 전극(NMC 슬러리)에도 응집체 걸림·기포·젖음성의 원인 축은 동일하고, 종횡비·roundness 등 기하학적 형태 판정 규칙은 광학 특성과 무관하게 이전 가능하다. 다만 밝기 기반 검출 임계값은 NMC/Al foil 조합에서 하부 노출 대비가 달라져 재교정이 필요하다.
+3. **딥러닝 불필요성 검증**: 밝기 표준편차 하나로 AUROC 0.983 (0.11 ms/cell, patch 당 70 cell → 약 8 ms/patch). 딥러닝은 0.990. AUROC로는 1%p 차이지만 FPR@95TPR은 8.7%→2.6%.
 4. **강건성 역전 (가설 반증)**: 센서 노이즈 σ=3에서 딥러닝 오탐률 100%, 표준편차 12.9%. 성능이 좋은 방법이 환경 변동에 더 취약했다. 원인은 정상 분포가 좁아 공분산 역행렬이 커지는 것.
-5. **공정능력 판정**: 8개 시퀀스 중 5개가 INCAPABLE. 정상 상태 자체가 불량이면 관리도가 무의미하다. 모니터링이 아니라 공정 조건 변경이 필요하다는 진단.
+5. **공정능력 판정**: CoatingVision 8개 시퀀스(R1/600\~1100µm 등) 중 5개가 INCAPABLE. 정상 상태 자체가 불량이면 관리도가 무의미하며, 모니터링이 아니라 공정 조건 변경이 필요하다는 진단이다. 이 진단 프레임(INCAPABLE 우선순위 최상) 자체는 배터리 라인 SPC에 그대로 이식 가능하나, 관리 한계와 결함 허용 기준은 NMC/PVdF/Al foil 기준으로 새로 수립해야 한다.
 6. **SPC 튜닝**: 알람 318→39건(8배 감소)하면서 lift 5.94→16.51(2.8배 증가). EWMA λ 0.2→0.1이 결정적.
 7. **라벨 검증 실패의 진단**: IoU 재현율 0.239 → 원인이 로직이 아니라 검증 설계였음을 밝힘(박스 크기 관례 4배 차이) → 중심거리 기준으로 0.830.
-8. **핀홀 검출 저자 초과**: mAP@0.5 0.924±0.012 vs 저자 0.7956. 더 작은 모델로 4회 반복 검증.
-9. **결함별 방법 분리**: 핀홀=검출, 크랙=면적비율, 박리=한계명시. "모든 결함을 하나의 검출기로"가 아니라는 방법론적 결론.
+8. **핀홀 검출 (프레임 단위 분할 재학습)**: YOLOv8n · val mAP@0.5 0.978±0.009 · test 0.975±0.023 (R7/700 hold-out, N=38 patch / 19 pinhole 객체). 기존 patch 무작위 분할 값 0.924±0.012 는 val 원본 프레임 82% 가 train 과 공유된 조건 (§18-12) 이라 대체됨. 저자 baseline 0.7956 대비 비교는 저자 분할 방식 미상으로 폐기 (§19-6).
+9. **결함별 방법 분리 (실측 완결)**: CoatingVision에서 핀홀은 bbox 검출 (YOLOv8n, val 0.978), 크랙·박리는 시맨틱 세그 (U-Net+ResNet34, crack IoU val 0.7431 / test_out 0.5455). ① 다중 클래스 검출은 충전율 (crack 0.40, delam 0.26)로 기각 (§18-7), 인스턴스도 저자 96px 파편으로 부적합. **핵심 실측**: 세그의 R7/700 도메인 열화 −27% vs A3 통계 지표 −81% (§20-6) — 형태 판별이 산포 지표보다 도메인 변화에 3배 완만. 배터리 전극에도 결함별 형성 물리 (모세관압 크랙 전파, 접착력 vs 내부응력 박리, 기포/젖음성 핀홀) 가 서로 달라 동일 방법 분기 원칙 적용 가능.
 
 \---
 
@@ -100,7 +110,7 @@ test/normal 3,600 vs eval 결함. train 정상 패치 18,000(갭당 3,000 균등
 
 |방법|crack|delam|pinhole|통합|통합 FPR@95|속도|
 |-|-|-|-|-|-|-|
-|A3 밝기 표준편차|0.976|0.995|0.992|0.983|0.087|**0.11 ms**|
+|A3 밝기 표준편차|0.976|0.995|0.992|0.983|0.087|**0.11 ms/cell** (≈ 8 ms/patch)|
 |B2 Mahalanobis|0.984|0.998|0.990|0.990|0.029|1.27 ms|
 |B3 PatchCore|0.986|0.996|0.992|0.989|0.027|2.27 ms|
 
@@ -119,14 +129,17 @@ PatchCore가 Mahalanobis를 못 이겼다. 정상 패치가 균일한 단일 모
 
 ### \[2] 검출 (11, 13, 14)
 
-**핀홀 단일 클래스, 4회 반복 (seed 0\~3)**
+**핀홀 단일 클래스, 프레임 단위 분할 재학습 (seed 0\~3, §19)**
 
-||mAP@0.5|mAP@0.5:0.95|P|R|
-|-|-|-|-|-|
-|저자 YOLOv11|0.7956|0.5208|0.7588|0.7621|
-|본 연구 YOLOv8n|**0.924±0.012**|0.597±0.032|0.829±0.025|0.909±0.022|
+|방식|분할|train/val|val mAP@0.5|val mAP@0.5:0.95|test mAP@0.5 (N=38, R7/700)|
+|-|-|-|-|-|-|
+|(a) 기존 (폐기)|patch 무작위|610/124|0.924±0.012|0.597±0.032|미보고|
+|(b) 대조|프레임 단위|606/123|0.973±0.010|0.560±0.046|0.983±0.017|
+|**(c) 프레임 전체 (대표)**|프레임 단위|686/150|**0.978±0.009**|0.600±0.028|**0.975±0.023**|
 
-가중치: `runs/pinhole\_v1/weights/best.pt` 및 `runs/pinhole\_seed{1,2,3}/`
+저자 baseline 0.7956 대비 비교는 §19-6 에서 폐기 (저자 분할 방식 확인 불가).
+
+가중치: 기존 `runs/pinhole\_v1/weights/best.pt` (patch 무작위, 참고용 유지) / 신규 `runs/pinhole\_frames\_seed{0..3}/weights/best.pt` (프레임 단위, 대표)
 
 ### \[3] SPC (09, 10)
 
@@ -147,21 +160,7 @@ PatchCore가 Mahalanobis를 못 이겼다. 정상 패치가 균일한 단일 모
 
 ## 다음 작업 (우선순위)
 
-### 1\. Flask 대시보드 (착수 가능)
-
-CathoAI의 Flask 경험 재사용. 이미 산출된 결과를 보여주는 정적 뷰가 자연스럽다:
-- SPC 시각화 8장(figures/spc\_\*.png) + 요약 격자(figures/spc\_summary.png)
-- Advisor 3층 리포트(advisor\_report.json 을 렌더링)
-- 결함별 갭 조건 정리 표(defect\_map.measured\_relations)
-- 핀홀 검출 데모 (이미지 업로드 → runs/pinhole\_v1/weights/best.pt 추론)
-
-화면 구성은 README에서 핵심 출력을 정한 뒤 결정하는 편이 안전.
-
-### 2\. README
-
-위 "핵심 발견" 9가지를 정리. 구조: 문제정의(Chem.Rev. 제조공정 AI 6% 논거) → 핵심 발견 → 시스템 구조 → 한계 명시.
-
-### 3\. Advisor 후속 개선 (여유 시)
+### 1\. Advisor 후속 개선 (여유 시)
 
 - R7/700 특이성 규칙: 같은 갭 내 다른 시퀀스와 라벨률이 크게 다를 때 관측만 보고 (원인 단정 금지). 이번 세션에서 보류 - R7 표본 132장 + 위치 다름(middle vs top-to-bottom-center) 교란으로 원인 분리 불가
 - 딥러닝 강건성 회복: 노이즈 제거 전처리(가우시안 블러 등)로 딥러닝 오탐률 회복 여부 검증
@@ -243,7 +242,23 @@ coating\_vision/
 ├── advisor\_report.json         # 구조화 리포트 (대시보드 재사용)
 ├── figures/                     # SPC 관리도 PNG 8장 + 요약 격자
 ├── runs/                        # YOLO 학습 결과 (pinhole\_v1/weights/best.pt)
-└── results\_\*.csv                # 벤치마크/강건성/SPC 결과
+├── results\_\*.csv                # 벤치마크/강건성/SPC 결과
+├── run.py                       # Flask 대시보드 진입점 (`python run.py`)
+├── app/                         # Flask 애플리케이션 패키지 (§2단계 리팩터링 완료)
+│   ├── __init__.py              # create_app() 팩토리 + blueprint 5 등록
+│   ├── config.py                # 경로 상수·Flask 설정
+│   ├── store.py                 # JSON·CSV lazy 로드 + KPI 조립
+│   ├── ml/                      # 모델 lazy 로드·스테이지 추론 (loader/anomaly/detect/segment/shape/advisor)
+│   ├── services/pipeline.py     # /inspect 파이프라인 조립 (run_inspection)
+│   ├── routes/                  # HTML blueprint (main/stream/inspect/benchmark)
+│   ├── api/sequence.py          # JSON blueprint (/api/sequence/<seq_id>)
+│   ├── templates/               # Jinja2 (base/index/stream/inspect/benchmark)
+│   └── static/                  # css/style.css, js/stream.js, samples/, uploads/(업로드 임시, gitignored)
+├── app_legacy.py                # (a) 단계 이전 원본 백업 (참고용, 삭제 금지)
+├── 17\_precompute\_detections.py  # 전체 프레임 YOLO 사전 추론 + patch_threshold 산정
+├── kpi\_headline.json            # 대시보드 헤드라인 두 값 (aggregate mAP, A3 속도)
+├── detections\_cache.json        # 17 산출: {image_N.jpg → [YOLO boxes]}
+└── stream\_data/                 # 17 산출: index.json + <seq_id>.json (재생용)
 ```
 
 ### 스크립트 목록
@@ -263,6 +278,9 @@ coating\_vision/
 |14\_pinhole\_dataset.py|핀홀 단일 클래스 데이터셋|
 |15\_spc\_visualize.py|SPC 관리도 시각화 (시퀀스별 8장 + 요약 격자)|
 |16\_advisor.py|3층 규칙 기반 Advisor (SPC + 핀홀 검출 + defect\_map)|
+|17\_precompute\_detections.py|전체 2,227장 YOLO 캐싱 + A3 patch_threshold 산정. `/stream` 지연 제거용|
+|18\_prepare\_samples.py|`/inspect` 예시 버튼용 샘플 3장 (핀홀/크랙/정상) 을 static/samples/ 로 복사|
+|app.py|Flask 대시보드 (`/stream` 인라인 재생 / `/inspect` 파이프라인 / `/` 개요 / `/benchmark` 표)|
 
 
 
