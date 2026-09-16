@@ -70,7 +70,18 @@
 |FR-33|`/spc` (manager 이상): 누적 관리도 Chart.js 렌더. metric 탭 (a3/seg\_crack), baseline 음영, 알람 붉은 점, 최근 알람 목록|P0|`routes/spc.py:spc\_page` · `app/static/js/spc.js` · `templates/spc.html`|수동|
 |FR-34|`/api/spc/series` (manager 이상): metric·limit 파라미터, JSON 반환 (summary + points)|P1|`api/spc.py:spc\_series`|`test\_permissions.py`|
 |FR-35|알람 조치 완료 전이 (STATUS='alarm' → 'reviewed'): manager 이상 + 해당 검사에 연결된 report 카테고리 글이 최소 1건 있어야 함. 없으면 flash 로 거부. 성공 시 `REVIEWED\_BY`·`REVIEWED\_AT` 기록|P0|`services/inspection\_store.py:mark\_reviewed` · `routes/history.py:history\_review` · `services/board.py:has\_report\_for\_inspection`|수동 (§3-6 HTTP 재검증: bob 403 · admin no-report 거부 · admin+report 성공)|
-|FR-56|**SPC baseline 완성 판정의 견고성** (FR-29 확장). metric 별 baseline 완성 여부는 해당 metric 에 **실제로 저장되어 있는 SPC 점의 수**를 기준으로 판정한다. 검사 이력 삭제 (FR-24 CASCADE) 로 `SPC_POINTS` 가 삭제되어 `SEQ_NO` 에 gap 이 생긴 상태에서도 판정 결과는 실제 남아 있는 점 수에 대응해야 한다. `add_spc_point` (신규 점 진입 시 phase 결정) 와 `get_summary` (외부 조회 시 `baseline_complete` 반환) **두 지점의 baseline 완성 판정 기준은 동일**해야 한다. FR-29·FR-30·FR-31·FR-32 (알람 판정, 관리한계·EWMA 계산) 는 이 판정을 전제로 하므로 두 지점이 서로 다른 값을 반환하면 판정 오류로 이어질 수 있다. **검증 기준**: (a) 특정 metric 에 30점을 저장한 후 중간 10점을 삭제하여 20점만 남긴 상태에서 새 점을 추가하면 phase='baseline' 으로 저장된다 (b) 위 상태에서 `get_summary` 는 `baseline_complete = False`, `total_points = 20` 을 반환한다 (c) 위 상태에서 `add_spc_point` 의 phase 판정과 `get_summary` 의 `baseline_complete` 는 논리적으로 동치 (한쪽이 baseline 이면 다른 쪽은 미완성) 이어야 한다 (d) NFR-17 (SPC 처리 실패 격리) 원칙에 따라 판정 로직 예외는 검사 저장 자체를 롤백하지 않는다|P0|`services/spc.py:add_spc_point`, `get_summary` (2단계 설계 후 결정)|`tests/test_spc.py` 에 gap 시나리오 케이스 추가 (4단계 테스트에서 결정)|
+|FR-56|SPC baseline 완성 판정은 metric 별 실제 저장된 SPC 점 수 기준. `SEQ_NO` gap 상태에서도 일관. `add_spc_point` 와 `get_summary` 두 지점 판정 기준 동일. FR-29 확장 (상세는 §1.4a)|P0|`services/spc.py:add\_spc\_point`, `get\_summary` (2단계 설계 후 결정)|`tests/test\_spc.py` gap 시나리오 (§1.4a 검증 기준 (a)~(d))|
+
+#### §1.4a FR-56 상세
+
+**배경**: 검사 이력 삭제 (FR-24 CASCADE) 로 `SPC_POINTS` 가 삭제되면 `SEQ_NO` 에 gap 이 생긴다. FR-29·FR-30·FR-31·FR-32 (baseline · 관리한계 · EWMA · 알람 판정) 는 baseline 완성 판정을 전제로 하므로 `add_spc_point` 와 `get_summary` 두 지점이 서로 다른 값을 반환하면 판정 오류로 이어질 수 있다.
+
+**검증 기준** (인수 조건):
+- (a) 특정 metric 에 30점 저장 → 중간 10점 삭제 → 20점 남은 상태에서 새 점 추가 시 `phase='baseline'` 으로 저장
+- (b) 위 상태에서 `get_summary` 는 `baseline_complete = False`, `total_points = 20` 반환
+- (c) 위 상태에서 `add_spc_point` 의 phase 판정과 `get_summary` 의 `baseline_complete` 는 논리적 동치 (한쪽이 baseline 이면 다른 쪽은 미완성)
+- (d) NFR-17 (SPC 처리 실패 격리) 원칙에 따라 판정 로직 예외는 검사 저장 자체를 롤백하지 않음
+
 
 ### 1.5 게시판
 
