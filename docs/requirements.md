@@ -71,6 +71,27 @@
 |FR-34|`/api/spc/series` (manager 이상): metric·limit 파라미터, JSON 반환 (summary + points)|P1|`api/spc.py:spc\_series`|`test\_permissions.py`|
 |FR-35|알람 조치 완료 전이 (STATUS='alarm' → 'reviewed'): manager 이상 + 해당 검사에 연결된 report 카테고리 글이 최소 1건 있어야 함. 없으면 flash 로 거부. 성공 시 `REVIEWED\_BY`·`REVIEWED\_AT` 기록|P0|`services/inspection\_store.py:mark\_reviewed` · `routes/history.py:history\_review` · `services/board.py:has\_report\_for\_inspection`|수동 (§3-6 HTTP 재검증: bob 403 · admin no-report 거부 · admin+report 성공)|
 |FR-56|SPC baseline 완성 판정은 metric 별 실제 저장된 SPC 점 수 기준. `SEQ_NO` gap 상태에서도 일관. `add_spc_point` 와 `get_summary` 두 지점 판정 기준 동일. FR-29 확장 (상세는 §1.4a)|P0|`services/spc.py:add\_spc\_point`, `get\_summary` (2단계 설계 후 결정)|`tests/test\_spc.py` gap 시나리오 (§1.4a 검증 기준 (a)~(d))|
+|FR-57|SPC 는 **계수형 지표** (프레임당 결함 개수 등 포아송 분포를 따르는 정수형) 도 관리 대상으로 지원한다. 관리한계 산출식은 지표 종류에 따라 다르며, 연속형 (a3·seg_crack 등, FR-30) 은 σ 기반 (`CENTER + L·σ`), 계수형은 c̄ 기반 (`CENTER + 3·√CENTER`, Poisson 근사) 을 쓴다. 상세는 §1.4b. **기존 연속형 지표 (a3·seg_crack) 의 동작·관리한계 산출은 변하지 않는다** (FR-29·FR-30·FR-31·FR-32 무영향)|P0|`services/spc.py` (2단계 설계 후 결정)|`tests/test\_spc.py` 계수형 신규 케이스 (5단계 테스트에서 결정)|
+
+#### §1.4b FR-57 상세
+
+**배경**: `experiment_log §24` 에서 프레임당 YOLO 박스 수 (N=367, c̄=1.48) 가 포아송 근사를 만족함을 확인 (분산/평균 0.90, 카이제곱 p=0.53). 계수형 c 관리도 산출식 (`UCL = c̄ + 3·√c̄`) 이 성립. 실배포 시 프레임당 YOLO 1회이므로 patch 배가 없음 → c 관리도 이전 가능 (§24-6·§24-7).
+
+**요구사항 상세**:
+- (I) **계수형 지표 등록**: FR-31 의 metric 별 매핑에 계수형 지표를 함께 등록할 수 있어야 한다. 새 계수형 지표 추가 시 λ 지정 규칙 (FR-31) 이 EWMA 적용 여부에 따라 다를 수 있음 — (III) 참조
+- (II) **관리한계 산출식 분기**: 지표가 연속형인지 계수형인지에 따라 서로 다른 산출식을 쓴다. 어느 지표가 어느 종류인지 시스템이 인식할 수 있어야 한다
+- (III) **EWMA 적용 여부는 미결정, 설계 단계 이월**. 이유: 저장소에 Poisson EWMA 관리도 산출식·근거 인용 없음 (§24 는 Shewhart 계수형만 다룸). 설계 단계에서 (i) EWMA 적용 여부 (ii) 적용 시 UCL 근사식 (iii) λ 값을 결정
+- (IV) **LCL 은 알람 판정에 사용하지 않음**. 계수형에서 `c̄ − 3·√c̄` 는 음수가 되기 쉽고 (c̄=1.48 조건 −2.17), 실무 c̄ 값에서 LCL 알람은 의미가 없다. 기존 연속형 정책 (`spc.py:161` `is_alarm = (value > ucl) or (ewma > ucl)`) 과 일관되게 하한 알람 미사용
+- (V) **baseline 30점 규칙 적용** (FR-29): 계수형에도 동일 적용. 근거는 SPC 문헌 (Montgomery) 계수형 관리도 권장 부분군 크기 20~25 이상 · 기존 규칙과의 관리 일관성. 통합 c 관리도 N=367 로 baseline 이후 monitor 충분
+- (VI) **연속형 지표 무영향**: 이 요구사항으로 인해 a3·seg_crack (연속형) 의 관리한계 산출·알람 판정·EWMA 계산이 변하면 안 된다
+
+**검증 기준** (인수 조건):
+- (a) 계수형 지표에 대해 baseline 30점 수집 후 UCL = c̄ + 3·√c̄ 로 산출되어 저장된다
+- (b) 계수형 지표의 알람 판정은 (III) 결정에 따른다 (Shewhart 만 or Shewhart + EWMA). LCL 은 알람 판정에 사용하지 않는다
+- (c) 기존 a3·seg_crack (연속형) 의 저장된 EWMA·CENTER·UCL 값과 알람 판정 결과가 이 요구사항 도입 전후로 동일하다 (회귀 없음)
+- (d) 신규 계수형 지표 등록 시 (I) 규칙 위반 (예: 종류 미지정) 은 SPC 처리 진입 시점에 명확히 실패한다 (FR-31 "조용한 기본값 사용 금지" 원칙 준용)
+
+**참조**: FR-29 (baseline 30), FR-30 (연속형 관리한계 σ 기반), FR-31 (metric 별 λ 매핑), FR-32 (알람 판정 · STATUS 전이), `experiment_log.md` §24.
 
 #### §1.4a FR-56 상세
 
