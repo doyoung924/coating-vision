@@ -10,7 +10,9 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 
 # Oracle Instant Client (thick 모드) 세팅. run.py 와 동일하게 이 export 가 필요.
-export LD_LIBRARY_PATH=/home/doyoung/oracle/instantclient_19_32
+# 실 경로는 .env 의 ORACLE_CLIENT_LIB 값 (예: /opt/oracle/instantclient_19_32)
+export ORACLE_CLIENT_LIB=<Oracle Instant Client 경로>
+export LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB
 
 # 전체 실행
 pytest -v

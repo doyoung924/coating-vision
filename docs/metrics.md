@@ -17,7 +17,7 @@
 - **CPU**: 11th Gen Intel Core i7-1165G7 @ 2.80GHz, 8 cores (torch threads=4)
 - **Python**: 3.12.3, torch 2.14.0+cu130, ultralytics 8.4.144, opencv 5.0.0
 - **DB**: Oracle 11g XE (원격 호스트, WSL 게이트웨이 IP), Instant Client 19.32 (thick 모드)
-- **환경변수**: `LD_LIBRARY_PATH=/home/doyoung/oracle/instantclient_19_32`
+- **환경변수**: `ORACLE_CLIENT_LIB=<Oracle IC 경로>` · `LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB` (예: `/opt/oracle/instantclient_19_32`)
 
 ---
 
@@ -35,7 +35,7 @@
 **재측정 명령**:
 ```bash
 source .venv/bin/activate
-export LD_LIBRARY_PATH=/home/doyoung/oracle/instantclient_19_32
+export LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB
 python -c "
 from app import create_app
 app = create_app()
@@ -127,7 +127,7 @@ find sql -type f \( -name "*.py" -o -name "*.sql" \) | xargs wc -l | tail -1
 **재측정 명령**:
 ```bash
 source .venv/bin/activate
-export LD_LIBRARY_PATH=/home/doyoung/oracle/instantclient_19_32
+export LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB
 python -m pytest --collect-only 2>&1 | tail -3
 python -m pytest 2>&1 | tail -3
 ```
@@ -177,7 +177,7 @@ python -m pytest --cov=app --cov-report= 2>&1 | tail -3
 **재측정 명령**:
 ```bash
 source .venv/bin/activate
-export LD_LIBRARY_PATH=/home/doyoung/oracle/instantclient_19_32
+export LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB
 python -c "
 import time
 t0 = time.perf_counter()

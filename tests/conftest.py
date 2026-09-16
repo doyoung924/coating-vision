@@ -22,12 +22,21 @@ import pytest
 # ensure_ld_library_path 를 부르면 execvpe 로 재실행되어 pytest 컨텍스트를
 # 잃으므로, pytest 실행 전에 shell 에서 export 되어 있어야 한다.
 # conftest 는 확인만.
-_LIB_DIR = "/home/doyoung/oracle/instantclient_19_32"
+#
+# 로컬 Oracle IC 경로는 사용자마다 다르므로 환경변수로 받는다.
+# .env.example 의 ORACLE_CLIENT_LIB 참조.
+_LIB_DIR = os.environ.get("ORACLE_CLIENT_LIB", "").strip()
+if not _LIB_DIR:
+    raise RuntimeError(
+        "ORACLE_CLIENT_LIB 환경변수를 설정하세요 (예: /opt/oracle/instantclient_19_32).\n"
+        ".env.example 을 복사해 .env 로 만들고 실 경로를 채우거나, "
+        "shell 에서 export ORACLE_CLIENT_LIB=<경로> 하세요."
+    )
 if _LIB_DIR not in os.environ.get("LD_LIBRARY_PATH", ""):
     raise RuntimeError(
         "LD_LIBRARY_PATH 에 {} 가 없다. pytest 실행 전에 export 필요:\n"
-        "    export LD_LIBRARY_PATH={}\n"
-        "    pytest".format(_LIB_DIR, _LIB_DIR)
+        "    export LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB\n"
+        "    pytest".format(_LIB_DIR)
     )
 
 

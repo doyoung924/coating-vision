@@ -659,7 +659,9 @@ python run.py                         # http://localhost:5000
 **테스트 실행**:
 ```bash
 pip install -r requirements-dev.txt
-export LD_LIBRARY_PATH=/home/doyoung/oracle/instantclient_19_32
+# .env 의 ORACLE_CLIENT_LIB 값을 shell 에 export
+export ORACLE_CLIENT_LIB=<Oracle Instant Client 경로>   # 예: /opt/oracle/instantclient_19_32
+export LD_LIBRARY_PATH=$ORACLE_CLIENT_LIB
 pytest -v                              # 전체
 pytest --cov=app --cov-report=term-missing  # 커버리지
 ```
