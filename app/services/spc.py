@@ -33,18 +33,25 @@ BASELINE_SIZE = 30
 # 세그 관점 최적 L=3.5 확인 · A3 관점 평탄 구간 내 (§22-4 재해석 (§23-2)).
 # 사후 정량 근거 유효. 현행 유지.
 SIGMA_LIMIT = 3.5
-# EWMA_LAMBDA: 0.1. 원 채택 근거 (§9-3 lift) 폐기.
-# 이 데이터에서 F1 상 λ=0.2 가 +0.20 우세 (§23-3, LOO 8/8 non-negative
-# §23-4a). 그러나 λ=0.1 유지:
-#   (1) 물리 근거: 건조 크랙은 점진적 드리프트 → λ 작을수록 추세 포착 유리
-#       (§9-3 정성 서술 · lift 폐기와 무관)
-#   (2) 데이터셋 편의: 8 시퀀스 모두 CoatingVision 안. 배터리 라인·다른
-#       조성에서 재현 미확인
-#   (3) 격자 탐색 선택 편의: L×λ 56 조합 최댓값 (§23-5)
-# 상태: "정량 근거 없음" 이 아니라 "물리 근거 있음 · 이 데이터에서는 차선".
-# 재검증 조건: 다른 데이터셋에서 λ=0.2 우세 재현 시 재판단.
-EWMA_LAMBDA = 0.1
-VALID_METRICS = ("a3", "seg_crack")
+# EWMA 평활 계수 λ 는 metric 별로 지정. FR-31 (§23-5).
+# 원 채택 (전역 λ=0.1) 근거 (§9-3 lift) 는 폐기 (§15-5, §22-3-1).
+# §23-3 격자 재해석 · §23-4a·§23-4b LOO (세그 8/8 non-negative, A3 8/8)
+# 로 L=3.5 조건 각 metric F1 최적 λ 확인.
+#   a3         = 0.1 : L=3.5 조건에서 A3 F1 최적 (λ=0.05 로 낮추면 F1 열화)
+#   seg_crack  = 0.2 : L=3.5 조건에서 세그 F1 0.60 → 0.80 개선.
+#                      LOO Δ 8/8 non-negative (§23-4a)
+# 재검증 조건: 다른 데이터셋 (배터리 라인 · 다른 조성) 에서 세그 λ
+# 최적이 0.2 밖으로 이동 시 재판단 (§23-5).
+EWMA_LAMBDAS = {
+    "a3": 0.1,
+    "seg_crack": 0.2,
+}
+# VALID_METRICS 는 EWMA_LAMBDAS.keys() 에서 파생 — 매핑 하나만 관리 대상.
+# 새 metric 추가 시 EWMA_LAMBDAS 에 (metric, λ) 를 함께 등록하면 자동으로
+# VALID_METRICS 에 포함된다. λ 미지정 metric 은 여기 나타날 수 없음.
+# add_spc_point 등에서 VALID_METRICS 검사로 등록 안 된 metric 은 조기 실패,
+# EWMA_LAMBDAS[metric] 직접 접근 (dict.get 아님) 이라 fallback 기본값 사용도 없음.
+VALID_METRICS = tuple(EWMA_LAMBDAS.keys())
 
 
 # ============================================================
@@ -145,7 +152,9 @@ def add_spc_point(inspection_id, metric, value):
             else:
                 previous_ewma = float(previous_row.ewma)
 
-        ewma = _next_ewma(value, EWMA_LAMBDA, previous_ewma)
+        # metric 별 λ (FR-31, §23-5). 매핑 없는 metric 은 앞선 VALID_METRICS
+        # 검사에서 이미 실패. dict.get 아닌 직접 접근 → fallback 없음.
+        ewma = _next_ewma(value, EWMA_LAMBDAS[metric], previous_ewma)
 
         # 알람 판정: 원값 또는 EWMA 가 UCL 초과.
         is_alarm = (value > ucl) or (ewma > ucl)
@@ -251,7 +260,8 @@ def get_summary(metric):
             "baseline_size": BASELINE_SIZE,
             "baseline_complete": total > BASELINE_SIZE,
             "sigma_limit": SIGMA_LIMIT,
-            "ewma_lambda": EWMA_LAMBDA,
+            # metric 별 λ (FR-31). get_summary 는 VALID_METRICS 검사를 이미 통과.
+            "ewma_lambda": EWMA_LAMBDAS[metric],
             "center": center,
             "ucl": ucl,
             "alarm_count": alarm_count,
