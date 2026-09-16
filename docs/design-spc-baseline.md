@@ -180,43 +180,43 @@ baseline_rows = sqlalchemy_session.query(SpcPoint.value).filter(
 
 **결론: 완전 격리된 자동화 픽스처는 현재 스키마에서 불가능**.
 
-### 5-3. 픽스처 대안
+### 5-3. 픽스처 대안 · 채택 결정 (2026-09-16 사용자 판단)
 
-**대안 D-1: 테스트 metric CHECK 완화** (권장)
-- `schema.sql:125` CHECK 를 `METRIC IN ('a3','seg_crack','pytest_a3','pytest_seg_crack')` 로 확장
-- 프로덕션 `spc.py:VALID_METRICS` 는 `('a3','seg_crack')` 유지 → 실운영 경로에는 pytest_ metric 미허용
-- 테스트 conftest 에서 `monkeypatch.setattr(spc_service, "VALID_METRICS", VALID_METRICS + ("pytest_a3", "pytest_seg_crack"))` 로 테스트 시에만 허용
-- 마이그레이션 1건 필요 (`sql/migrate_3_6.py`: 기존 CHECK DROP 후 재생성). 프로덕션 DB 는 SPC_POINTS 비어 있어 (§2-1 실측) 마이그레이션 안전
-- **위험**: 낮음. 프로덕션 코드는 여전히 2 metric 만 허용
+| 대안 | 방법 | 판정 |
+|---|---|---|
+| D-1 | 스키마 CHECK 완화 (`pytest_a3` 등 허용) + spc.py VALID_METRICS 는 그대로 + 테스트 conftest 에서 monkeypatch | **탈락** |
+| D-2 | SQLAlchemy 세션 mock 으로 순수 로직 단위 테스트 | **탈락** |
+| **D-3** | **통합 테스트를 pytest 밖 수동 시나리오로 문서화** | **채택** |
 
-**대안 D-2: SQLAlchemy 세션 mock 으로 순수 로직 단위 테스트**
-- COUNT/MAX 쿼리를 mock 반환값으로 대체. 판정 분기만 검증
-- **위험**: mock 결과가 실제 Oracle 동작 (동시 삽입 시 COUNT 시점 등) 을 완전 반영 못 함. 기존 격리 원칙 (실제 Oracle 사용) 과 충돌
+**D-1 탈락 사유**: 테스트 편의를 위해 프로덕션 CHECK 제약을 완화하는 것은 DB 제약을 두는 목적과 배치된다. 스키마가 앱을 우회한 경로 (직접 SQL, 다른 도구) 로 들어온 잘못된 metric 을 걸러내는 것이 CHECK 제약의 존재 이유인데, 이를 완화하면 그 방어선이 무너진다. `spc.py:VALID_METRICS` 는 애플리케이션 계층 방어선이고, CHECK 는 DB 계층 방어선으로 서로 다른 목적을 가짐.
 
-**대안 D-3: 통합 테스트를 pytest 밖 별도 스크립트로**
-- `experiment_log` 또는 `docs/testing.md` 에 수동 시나리오로 기록. CI 자동화 배제
-- **위험**: 자동화 커버리지 0. 회귀 방지 안 됨
+**D-2 탈락 사유**: `docs/testing.md` §5 원칙 "실제 Oracle 을 사용 (SQLite 대체 아님)" 에 예외를 만든다. mock 도입 시 Oracle 11g 특유 규약 (SEQUENCE + TRIGGER, CHECK, CASCADE) 을 우회하게 되어 회귀 방지 효과가 낮아진다.
 
-### 5-4. 권장 (4단계에서 재검토 조건부)
+**D-3 채택 근거**: 프로덕션 스키마·앱·테스트 격리 원칙 모두 유지. 검증 기준 (a)(b) 만 자동화 밖으로 밀어냄. 회귀 방지는 (c) 자동 테스트로 대체.
 
-**대안 D-1** — 스키마 CHECK 완화 + monkeypatch. 이유:
-- 프로덕션 오염 없음 (VALID_METRICS 는 그대로)
-- FR-56 검증 기준 (a)~(d) 를 실제 Oracle 에서 자동으로 검증 가능
-- 부수 효과로 기존 skip 케이스 (`test_status_becomes_alarm_when_spc_triggers`) 도 해소 가능
+### 5-4. FR-56 검증 기준별 방식 재분류
 
-**주의**: **테스트 격리를 위한 스키마 변경은 FR-56 자체의 요구가 아니라 검증 방법의 문제**. 별도 요구사항 (예: FR-57 "SPC 관련 테스트는 프로덕션 metric 을 오염시키지 않는다") 으로 분리하는 것이 정합적. 4단계 (테스트) 진입 시 이 판단을 재확인.
+**FR-57 신설 없음** — 테스트 격리는 요구사항이 아니라 `docs/testing.md` 의 테스트 정책 영역.
+
+| 기준 | 방식 | 근거 |
+|---|---|---|
+| (a) 30점 → 10점 삭제 → 새 점 phase='baseline' | **수동 시나리오** (`docs/testing.md` 에 절차 추가 예정) | gap 재현이 프로덕션 metric 필요, 자동화 불가 (§5-3) |
+| (b) get_summary baseline_complete=False, total_points=20 | **수동 시나리오** (동상) | (a) 와 동일 시나리오 안에서 확인 |
+| (c) `add_spc_point` phase 판정과 `get_summary.baseline_complete` 의 논리 동치 | **자동 테스트** (`tests/test_spc.py` 신규 케이스, 4단계) | gap 없는 상태에서도 동치성은 유지되어야 함. 정상 상태 (예: 5점 · 30점 · 31점) 에서 두 지점 반환값이 서로 모순되지 않음을 assert. gap 재현 없이 검증 가능 |
+| (d) NFR-17 예외 격리 (판정 로직 예외가 검사 저장을 롤백하지 않음) | **기존 NFR-17 검증 방식과 동일** | `_process_spc_and_status` (`inspection_store.py:118-126, 130-136`) 의 `try/except` 로직으로 이미 격리. 별도 자동 테스트 신설 안 함 (NFR-17 도 자동 테스트 없이 코드 리뷰 + 서술로만 유지되고 있음, 확인 완료: `tests/` 안 NFR-17 매치 0건) |
 
 ### 5-5. 3단계 (구현) 범위 확정
 
-3단계 (구현) 는 **프로덕션 코드 (`app/services/spc.py`) 만 수정**. 스키마·테스트는 4단계에서 재검토 후 결정.
+3단계 (구현) 는 **프로덕션 코드 (`app/services/spc.py`) 만 수정**. 스키마·마이그레이션 없음. 4단계 (테스트) 에서 (c) 자동 케이스만 신규.
 
 - 수정 대상: `app/services/spc.py:71-78` 판정 로직 1군데
 - 스키마 변경: 없음
-- 테스트 신규: 없음 (4단계에서)
-- 마이그레이션: 없음 (4단계 검토 후 필요 시 추가)
+- 마이그레이션: 없음
+- 4단계 신규 테스트: (c) 논리 동치 자동 케이스 1건 + `docs/testing.md` 에 (a)(b) 수동 시나리오 절 추가
 
 ---
 
 ## 6. 변경 이력
 
 - 2026-09-16: 초안 (COUNT 기반 후보 A 채택 · 픽스처 D-1 잠정 권장)
+- 2026-09-16: §5 갱신 — 픽스처 D-3 (수동 시나리오) 채택. D-1·D-2 탈락. FR-57 신설 없음. (c) 는 자동 · (d) 는 기존 NFR-17 검증 방식 준용
