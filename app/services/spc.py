@@ -51,6 +51,15 @@ EWMA_LAMBDAS = {
 # VALID_METRICS 에 포함된다. λ 미지정 metric 은 여기 나타날 수 없음.
 # add_spc_point 등에서 VALID_METRICS 검사로 등록 안 된 metric 은 조기 실패,
 # EWMA_LAMBDAS[metric] 직접 접근 (dict.get 아님) 이라 fallback 기본값 사용도 없음.
+#
+# ┌── 새 SPC metric 추가 시 반드시 두 곳을 모두 수정 ──────────────────────┐
+# │  1. 위 EWMA_LAMBDAS 에 (metric, λ) 등록                                │
+# │  2. sql/schema.sql SPC_POINTS.METRIC CHECK 제약에 새 값 추가           │
+# │     + 기존 DB 는 sql/migrate_3_X.py 로 CHECK 재정의 (DROP/ADD)         │
+# │  한쪽만 고치면 앱 검증은 통과하고 DB INSERT 가 ORA-02290 로 거부한다. │
+# │  배포 순서: 스키마 마이그레이션 먼저 → 앱 배포 나중.                  │
+# │  상세: docs/schema.md §SPC_POINTS "새 SPC metric 추가 시 필수 절차"    │
+# └────────────────────────────────────────────────────────────────────────┘
 VALID_METRICS = tuple(EWMA_LAMBDAS.keys())
 
 

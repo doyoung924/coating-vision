@@ -84,10 +84,26 @@ POSTS(1) ─────< (N)COMMENTS           ON DELETE CASCADE
 | METRIC | VARCHAR2(20) | Y | | CHECK IN ('a3','seg_crack'). |
 | SEQ_NO | NUMBER(7) | Y | | metric 내 순번. 인덱스 (METRIC, SEQ_NO). |
 | VALUE | NUMBER(10,6) | Y | | 원값. |
-| EWMA | NUMBER(10,6) | Y | | λ=0.1 EWMA. baseline 30점까지는 NULL. |
+| EWMA | NUMBER(10,6) | Y | | metric 별 λ 로 계산한 EWMA (a3=0.1, seg_crack=0.2. FR-31). baseline 30점까지는 NULL. |
 | CENTER | NUMBER(10,6) | Y | | baseline 평균. baseline 30점까지는 NULL. |
 | UCL | NUMBER(10,6) | Y | | CENTER + 3.5σ. baseline 30점까지는 NULL. |
 | IS_ALARM | NUMBER(1) | Y | 0 | CHECK IN (0,1). value 또는 EWMA 가 UCL 초과 시 1. |
+
+### 새 SPC metric 추가 시 필수 절차
+
+METRIC 컬럼은 **앱 계층 (`app/services/spc.py:EWMA_LAMBDAS`)** 과 **DB CHECK 제약** 두 곳에서 이중 관리된다. 새 metric 추가 시 **두 곳을 모두 수정**해야 하며 한쪽만 고치면 앱 검증은 통과하나 DB INSERT 가 `ORA-02290` (check constraint violated) 로 실패한다.
+
+**수정 대상**:
+
+1. **`app/services/spc.py:EWMA_LAMBDAS`** — 새 metric 과 λ 값을 dict 에 추가. `VALID_METRICS` 는 `EWMA_LAMBDAS.keys()` 에서 파생되므로 자동 반영
+2. **`sql/schema.sql:125`** `SPC_POINTS.METRIC CHECK (METRIC IN ('a3','seg_crack'))` — 새 metric 값을 CHECK 목록에 추가
+3. **기존 DB 마이그레이션 (`sql/migrate_3_X.py` 신규)** — 이미 DB 를 초기화한 환경에서는 스키마 파일 수정만으로는 반영되지 않음. `ALTER TABLE SPC_POINTS DROP CONSTRAINT <이름>` 후 `ALTER TABLE ... ADD CONSTRAINT ... CHECK (METRIC IN (...))` 실행
+
+**배포 순서**: DB 마이그레이션을 먼저 실행 (스키마가 새 metric 을 허용하도록) → 그 다음 앱 배포 (새 EWMA_LAMBDAS 반영). 반대 순서로 하면 새 앱이 부팅해서 새 metric 값을 저장하려 할 때 DB CHECK 위반.
+
+**FR-31 요구사항 참조**: `docs/requirements.md` FR-31 — 새 metric 추가 시 λ 값을 함께 지정해야 하며, 지정되지 않은 metric 은 SPC 처리에서 명확히 실패.
+
+**이중 관리 강제 검토 결과**: 앱 기동 시 `USER_CONSTRAINTS` 조회로 CHECK 정의를 파싱해 `EWMA_LAMBDAS.keys()` 와 대조하는 방식이 가능하나 **채택하지 않음** — (1) Oracle CHECK 표현식 문자열 파싱 필요 (정규식 취약) (2) 매 부팅마다 DB 접속 → NFR-01 (500 ms) 위반 가능성 (3) 이 프로젝트의 다른 이중 관리 지점 (`ROLE`, `STATUS`, `CATEGORY`, `LAYER`) 도 동일 구조라 SPC 만 강제하는 것이 비대칭 (4) 배포 순서로 관리하는 것이 실무 관례. **문서화로 대체**.
 
 ## FINDINGS
 
